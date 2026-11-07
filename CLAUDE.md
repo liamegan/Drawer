@@ -1,0 +1,36 @@
+# wtc-drawer
+
+A publishable, plotter-oriented vector generative art library. `src/` is the library (published as `wtc-drawer`); `playground/` is a dev harness of sketches that import it by package name.
+
+`examples/GM/` is third-party reference code (Zancan's *Garden, Monoliths*). It's for study only: it's gitignored, and nothing should import it.
+
+## Commands
+- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`. Keys: `s` saves the SVG, `r` picks a new seed, `←/→` steps the seed, `m` toggles the mask overlay.
+- `npm test`: Vitest. Tests live next to the code as `src/**/*.test.ts`.
+- `npm run typecheck`: checks the app (`tsconfig.json`) and `vite.config.ts` (`tsconfig.node.json`).
+- `npm run build`: `vite build` (lib mode, emits `dist/index.es.js`), then `tsc -p tsconfig.build.json` (emits `.d.ts` files only).
+
+## Conventions
+- Strict TS, `verbatimModuleSyntax` (use `import type` for types), and `erasableSyntaxOnly` (no enums or parameter properties).
+- Relative imports in `src/` use **`.js` extensions** (`./Polyline.js`) so the emitted `.d.ts` files resolve for consumers.
+- Units are **millimetres**. The origin is at the top-left and y points down. Pixels exist only inside `renderToCanvas`.
+- Geometry is immutable: `Polyline` copies its input and its methods return new instances. `Document` and `Layer` are mutable containers.
+- `wtc-math` provides `Vec2` and `Mat3`. It is external in the build; don't re-export it.
+- All randomness in a sketch goes through `Random`. Use `random.fork(label)` for independent streams.
+- Keep `src/` free of DOM globals. Renderers take a context; the playground owns `document` and `window`.
+- Occlusion: draw **front to back**. `doc.draw()` clips paths against `doc.mask` and then stamps their silhouette; `doc.add()` does neither. Mask pixel (i, j) is centred at `((i+0.5)/res, (j+0.5)/res)` mm, and fills default to `nonzero`, as in SVG. Hot loops (the rasteriser, `clipPolyline`) use raw numbers, not `Vec2`.
+- Hatching:
+  - **Angles:** positive turns clockwise on screen, and 0 gives horizontal lines.
+  - **Lattice:** `hatch` and `shade` pin lines to a **page lattice** by default (`anchor: "page"`, `offset` ½ spacing), so shapes hatched alike line up.
+  - **Clipping:** clipping to a shape is exact (`ScanlineSweep` or `clipToShape`), never via the mask.
+  - **Spirals:** `spiral` shrinks the outline towards a centre, so it is always local and needs a star-shaped outline. Spacing is exact only when the outline has an inscribed circle.
+  - **Separate pens for outline and hatch:** draw the outline with `doc.draw("ink", outline, { silhouette: false })`, then the hatch with `doc.draw("shade", lines, { silhouette: outline })`.
+- New files follow Prettier defaults (80 columns), which is what the editor applies.
+
+## wtc-math gotchas (verified on 1.4.0, pinned by `transforms.test.ts`)
+- Mat3 is column-major, with the translation in `a31/a32`. `Vec2.transformByMat3` applies the translation.
+- `m.multiply(n)` computes `m × n`, so `n` is applied first. The chained `identity().translate(t).rotate(r)` rotates first.
+- `Mat3.fromAngle(θ)` and `Mat3.identity().rotate(θ)` rotate in **opposite** directions. Use the helpers in `src/geometry/transforms.ts`: a positive angle turns clockwise on screen, and `compose(a, b, c)` applies `a` first.
+
+## Roadmap
+See `roadmap.md`, which lists phases, status, completion criteria and open decisions. Keep it up to date as phases land.

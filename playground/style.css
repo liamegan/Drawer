@@ -1,0 +1,37 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  background: #1d1d1f;
+  color: #b8b8bc;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+#stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#preview {
+  display: block;
+  box-shadow: 0 8px 40px rgb(0 0 0 / 0.5);
+}
+
+#hud {
+  padding: 8px 16px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
