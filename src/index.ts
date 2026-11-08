@@ -54,6 +54,7 @@ export {
   type ToneSpacingOptions,
 } from "./fill/tone.js";
 export { spiral, type SpiralOptions } from "./fill/spiral.js";
+export { flowHatch, type FlowHatchOptions } from "./fill/flow.js";
 export {
   waveShade,
   waveToneRange,
@@ -70,6 +71,18 @@ export {
   contourSpiral,
   type ContourSpiralOptions,
 } from "./fill/contourSpiral.js";
+
+// Noise and fields
+export { Noise, type FbmOptions } from "./noise/Noise.js";
+export {
+  angleField,
+  curlField,
+  type CurlOptions,
+  type ScalarField,
+  type VectorField,
+} from "./field/fields.js";
+export { streamlines, type StreamlineOptions } from "./field/streamlines.js";
+export { Region } from "./geometry/region.js";
 
 // Plotting
 export {

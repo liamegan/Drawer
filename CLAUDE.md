@@ -30,6 +30,7 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
   - **Grid:** nodes sit on a page lattice at multiples of `1 / resolution` (default 5 nodes per mm), so grids of different fields line up index for index.
   - **Exactness:** a leaf from `sdf()` is exact. `union`, `intersect`, `subtract` and growing `offset`s are not exact inside, so contour fills (`contourHatch`, `contourSpiral`) re-trace a combined field's outline into an exact leaf first, unless `exact: false`. `SDF.exact` means "inside distances are true", which shrinking `offset`s keep.
   - **Isolines:** outer rings run clockwise on screen, holes the other way, so either fill rule fills them. Inset outlines (`hatch({ inset })`) are hatched with even-odd.
+- Noise and fields: noise is seeded through `Random` (`new Noise(random.fork("noise"))`) and never uses `Math.random`. A `VectorField` is a plain `(x, y) => [dx, dy]` function in mm; streamlines follow its direction only, and treat a zero vector as a stop. Use `Region` (`src/geometry/region.ts`) for repeated point-in-shape and segment-exit queries on the same shapes.
 - Plotting (`src/plot/`): `optimize(doc)` returns a new Document and never touches the input. It never reorders or mixes layers (a layer is a pen). Each layer starts from home at the page's top-left (0, 0) and returns there, as AxiDraw does. Test helpers shared between test files go in `*.test-util.ts`, which the declaration build excludes.
 - New files follow Prettier defaults (80 columns), which is what the editor applies.
 

@@ -107,7 +107,8 @@ function drawTravel(doc: Document, scale: number): void {
   ctx.save();
   ctx.scale(scale, scale);
   ctx.lineWidth = Math.max(0.15, 1 / scale);
-  ctx.strokeStyle = "rgb(0 140 255 / 0.7)";
+  // Green, to stand apart from ink pens, the red mask and magenta guides.
+  ctx.strokeStyle = "rgb(0 170 80 / 0.8)";
   ctx.beginPath();
   for (const layer of doc.layers) {
     let x = 0;

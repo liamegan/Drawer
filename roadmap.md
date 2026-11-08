@@ -127,14 +127,32 @@ Makes real plots faster and cleaner. Plotting is AxiDraw straight from the SVG, 
 - **Speed:** the optimiser takes 8–57 ms. On the fast sketches that's longer than the build, so the "a quarter of build time" target was off, though it's small in absolute terms.
 - **2-opt:** greedy ordering leaves short, local moves (checked with `t` renders), so 2-opt wasn't added.
 
-## Phase 5: Noise and fields ⬜
+## Phase 5: Noise and fields ✅
 
 The raw material for organic sketches. (GM's `perlin.js` was empty in the copy we have; its noise came from a global `noise.simplex2`.)
 
-- [ ] Seeded 2D and 3D simplex noise, plus fBm, tied to `Random` so a seed reproduces it
-- [ ] Vector fields: noise-based curl, and custom functions
-- [ ] Streamlines with even spacing (Jobard–Lefer), using the Phase 1 mask for collision (`stopOnCollide`)
-- [ ] Flow-field hatching as a fill style (GM: `M_hatchFuncFlowField`)
+- [x] Seeded noise: `new Noise(random.fork("noise"))`, with 2D and 3D simplex noise (Gustavson) in [−1, 1] and fBm (`fbm2`, `fbm3`; octaves, frequency, lacunarity, gain), normalised back to [−1, 1].
+  - About 15 ms per million `simplex2` calls, and 75 ms per million 4-octave `fbm2` calls.
+- [x] Vector fields: a `VectorField` is any `(x, y) => [dx, dy]`. `angleField(angle)` gives unit vectors at an angle; `curlField(potential)` takes the curl by central differences, which is divergence-free, so lines never bunch.
+- [x] Evenly spaced streamlines: `streamlines(field, { region, separation, test, step, minLength, maxLength, seeds, stopAt })`, after Jobard and Lefer.
+  - **Tracing:** RK4 on the unit field, both ways from each seed. New seeds are tried a separation either side of every line, and a scan afterwards picks up any part the flow didn't reach, such as a separate part of the region.
+  - **Self-collision:** each grid point stores its arc position along its line. A growing line ignores its own points within two separations of arc, so closed orbits end as rings.
+  - **Lines stop at:**
+    - the region's edge, exactly: `Region` (`src/geometry/region.ts`) is a banded edge index that classifies the stretches between crossings by exact winding;
+    - other lines (half a separation away);
+    - sinks and saddles, where a step reverses or stalls;
+    - ink, via `stopAt` (for example `doc.mask.hiddenTest()`);
+    - `maxLength`, after which the flow carries on in dashes.
+  - **Separation:** can vary with position, and an infinite separation leaves an area empty.
+  - **Measured on curl noise:**
+    - Closest approach between lines: 0.48 of the separation. Collisions are checked between points a quarter separation apart, which allows √(½² − ⅛²) ≈ 0.484.
+    - Gaps: 99% of points are within 0.77 separation of a line, and the worst gap is 1.2.
+    - Speed: an A5 page (24 m of line) takes 180 ms.
+  - Fixed during the work: a stall at sinks, where RK4's samples cancel within half a step of the centre. It now stops on no progress.
+- [x] Flow-field hatching: `flowHatch(shapes, { field, spacing } | { field, tone, pen })`, with `inset`, `maxLength` and `stopAt`. Tone sets the spacing (`pen / tone`, none lighter than `pen / maxSpacing`), and tone fields work. Coverage is within about 10% of the tone: dark tones run a little dark, light ones a little light.
+- [x] Sketch: `flow.ts`, noise-warped blobs filled with curl, grain (angle field), tone, dashed and inset flow, occluded front to back, over a slow curl-noise background that ends at the blobs. Debug shows the background field's direction and labels each fill. It builds in 160–440 ms; optimising cuts pen-up travel from about 23 m to 4 m.
+
+**Done when:** seeded noise and fields drive evenly spaced streamlines that fill any region without crowding or large gaps, and flow-field hatching works as a tone-aware fill that stops at existing ink. Met: `streamlines.test.ts` checks spacing, gaps, field-following, exact edge ends, holes and fill rules, rings, sinks, `stopAt`, variable density, dashes and determinism. 228 tests pass.
 
 ---
 
