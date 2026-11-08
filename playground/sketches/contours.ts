@@ -10,6 +10,7 @@ import {
   sdf,
   shade,
   sine,
+  waveShade,
   type Random,
   type SDF,
 } from "wtc-drawer";
@@ -24,6 +25,7 @@ const FILLS = [
   "inset", // parallel hatching kept 1.2 mm inside the outline
   "plain", // the same hatching without the inset, to compare
   "wave", // parallel hatching with the `sine` line style
+  "wavetone", // waveShade: unbroken waves that grow and tighten with the tone
 ] as const;
 type Fill = (typeof FILLS)[number];
 
@@ -148,6 +150,9 @@ function fillShape(
         angle,
         style: sine({ amplitude: 0.4, wavelength: 4 }),
       });
+    case "wavetone":
+      // Lit like "shade". The inset keeps crests off the outline.
+      return waveShade(outline, { tone, pen, spacing: 1.2, angle, inset: 0.4 });
   }
 }
 

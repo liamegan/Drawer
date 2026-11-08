@@ -5,7 +5,7 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
 `examples/GM/` is third-party reference code (Zancan's *Garden, Monoliths*). It's for study only: it's gitignored, and nothing should import it.
 
 ## Commands
-- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`. Keys: `s` saves the SVG, `r` picks a new seed, `←/→` steps the seed, `m` toggles the mask overlay, `d` toggles debug guides (`?debug` starts with them on). Sketches record guides through the third `draw` argument; they show on the preview only, never in the SVG.
+- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`. Keys: `s` saves the SVG, `r` picks a new seed, `←/→` steps the seed, `o` switches the preview and `s` between the optimised and raw drawing (optimised by default), `t` overlays pen-up travel, `m` toggles the mask overlay, `d` toggles debug guides. `o`, `t` and `d` are kept in the URL (`?raw`, `?travel`, `?debug`). Sketches record guides through the third `draw` argument; they show on the preview only, never in the SVG.
 - `npm test`: Vitest. Tests live next to the code as `src/**/*.test.ts`.
 - `npm run typecheck`: checks the app (`tsconfig.json`) and `vite.config.ts` (`tsconfig.node.json`).
 - `npm run build`: `vite build` (lib mode, emits `dist/index.es.js`), then `tsc -p tsconfig.build.json` (emits `.d.ts` files only).
@@ -30,6 +30,7 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
   - **Grid:** nodes sit on a page lattice at multiples of `1 / resolution` (default 5 nodes per mm), so grids of different fields line up index for index.
   - **Exactness:** a leaf from `sdf()` is exact. `union`, `intersect`, `subtract` and growing `offset`s are not exact inside, so contour fills (`contourHatch`, `contourSpiral`) re-trace a combined field's outline into an exact leaf first, unless `exact: false`. `SDF.exact` means "inside distances are true", which shrinking `offset`s keep.
   - **Isolines:** outer rings run clockwise on screen, holes the other way, so either fill rule fills them. Inset outlines (`hatch({ inset })`) are hatched with even-odd.
+- Plotting (`src/plot/`): `optimize(doc)` returns a new Document and never touches the input. It never reorders or mixes layers (a layer is a pen). Each layer starts from home at the page's top-left (0, 0) and returns there, as AxiDraw does. Test helpers shared between test files go in `*.test-util.ts`, which the declaration build excludes.
 - New files follow Prettier defaults (80 columns), which is what the editor applies.
 
 ## wtc-math gotchas (verified on 1.4.0, pinned by `transforms.test.ts`)

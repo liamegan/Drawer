@@ -63,6 +63,7 @@ Filling closed shapes with plottable lines. (GM: `M_hatchShape` and its distribu
   - Concentric circles clipped to an n-gon break into arcs in the corners, which is what this fixes.
   - Always centred on its own shape: the page lattice doesn't apply.
   - Throws for shapes that aren't star-shaped (a U); those wait for the Phase 3 contour spiral.
+- [x] Tone-driven waves (added 2026-11-08): `waveShade(shapes, { tone, pen, spacing })` draws unbroken wavy lines whose waves carry the tone, growing taller at `wavelength`, then tightening down to `minWavelength`. Tone is true ink coverage: a table measures the stroke's area, counting overlaps once, and is checked against point sampling to within about 0.01. The range runs from `pen / spacing` (a straight line) to about 0.94–0.97 (`waveToneRange`). The phase is summed along each line, so changing wavelength never kinks, and constant tones stay page-aligned.
 - [x] Sketches: `swatches.ts` (a pen calibration sheet: tone ramps per style, spirals against concentric circles, gradients, page versus local anchors) and `shading.ts` (lit shapes, cross-hatched tone fields, occlusion)
 
 **Done when:** any simple or self-intersecting closed polyline can be hatched with tone-driven spacing, with nothing outside the shape. Met: `hatch.test.ts` samples every line in random concave blobs, a pentagram and shapes with holes under both rules, and all line ends sit on edges to 1e-9. The smoke run found no shading point outside its silhouette, and both sketches build in under 65 ms.
@@ -89,24 +90,42 @@ Outline-following fills for any shape, the general form of GM's leaf hatching. C
   - Turn spacing, in spacings (5th percentile, where 1 is exact): circle 0.99, square and hexagon 0.98, triangle 0.96, organic blobs 0.98, a U 0.91. A lobe that runs out between turns (a hand's fingers) leaves one turn up to 18% tight at the 1st percentile, so the extra machinery to fix that wasn't added.
   - Parts too thin for another turn get a centre line, drawn there and back.
 - [x] Perpendicular inset for hatching: `hatch({ inset })` and `shade({ inset })` keep lines a set distance inside the outline, measured square to it (the isoline `d = −inset`). Line ends sit within 0.01 mm of the inset, or further in at sharp corners; never nearer the edge. The lattice doesn't move.
-- [x] Sketch: `contours.ts`, organic blobs (single, smooth-unioned clusters, and bitten), filled with contours, spirals, contour shading, metaball contours, and parallel hatching with and without an inset, and `sine` wave hatching, occluded front to back, with a halo of grown outlines round the nearest shape
+- [x] Sketch: `contours.ts`, organic blobs (single, smooth-unioned clusters, and bitten), filled with contours, spirals, contour shading, metaball contours, and parallel hatching with and without an inset, `sine` wave hatching and `waveShade`, occluded front to back, with a halo of grown outlines round the nearest shape
 
 **Done when:** contour hatching follows the outline of arbitrary shapes and of boolean combinations, and stays within the SDF resolution of the true geometry. Met: `contour.test.ts` checks every ring point's depth to 0.1 mm (most within 0.01) on random concave blobs, holes, unions and grown fields, and the spiral tests check spacing, coverage and containment. 172 tests pass. The sketch builds in 150–225 ms in Node.
 
 ---
 
-## Phase 4: Plot optimisation ⬜
+## Phase 4: Plot optimisation ✅
 
-Makes real plots faster and cleaner. This can move ahead of Phases 2 and 3 if real plotting starts early.
+Makes real plots faster and cleaner. Plotting is AxiDraw straight from the SVG, with no vpype, so this is the only optimiser. `optimize(doc)` returns a new document with the same sheet, layers and pens. Layers are never reordered, since each is a pen.
 
-- [ ] Path ordering: greedy nearest-neighbour per layer, allowing reversal, to cut pen-up travel
-- [ ] Merge paths whose ends touch, within a tolerance
-- [ ] Simplify (RDP) to a tolerance below the pen width
-- [ ] Remove duplicate and overlapping segments
-- [ ] Stats: pen-down and pen-up distance, and an estimated plot time from a configurable speed
-- [ ] HUD in the playground showing the stats before and after optimising
+- [x] Path ordering: `sortPaths`, greedy nearest-neighbour per layer from home (top-left), reversing open paths and starting closed paths at their nearest vertex. Uses a removable point grid (`src/plot/grid.ts`).
+- [x] Merging: `mergePaths` joins paths whose ends meet within 0.05 mm, reversing as needed. Chains that loop become closed paths.
+- [x] Simplify (RDP) at 0.02 mm, well below any pen width
+- [x] Removing duplicate and overlapping ink: `dedupePaths` removes stretches that follow earlier ink within 0.05 mm for at least 1 mm.
+  - This catches repeated paths, shared edges and the contour spiral's there-and-back centre lines.
+  - Lines that only cross are never cut: segments must be within 15°, and a stretch whose sideways offset drifts by more than the tolerance is a shallow crossing.
+  - Texture is left alone. A stretch must follow one stretch of partner ink, so `waveShade`'s overlapping flanks and densely sampled curves stay as drawn.
+- [x] Stats: `plotStats` gives pen-down and pen-up distance, lifts, points and an estimated time per layer, each layer from home and back. Defaults are rough AxiDraw-like figures (50 mm/s drawing, 150 mm/s travel, 0.3 s per lift); calibrate them by timing a real plot. Acceleration is ignored.
+- [x] Playground:
+  - The HUD shows raw → optimised ink, travel, lifts and time, plus build and optimise times.
+  - `s` saves the optimised SVG, and `o` toggles preview and save back to raw.
+  - `t` overlays the pen-up moves.
 
----
+**Done when:** every sketch's optimised SVG draws the same ink with clearly less pen-up travel. Met (seed 1 unless stated):
+
+| Sketch | Travel (m) | Lifts | Estimated time (min) | Optimise |
+| --- | --- | --- | --- | --- |
+| shading | 33.8 → 3.3 | 1408 → 1307 | 19.3 → 15.4 | 16 ms |
+| occlusion | 15.8 → 2.1 | — | 6.7 → 5.2 | 9 ms |
+| swatches | 17.8 → 5.7 | — | 29.0 → 26.8 | 56 ms |
+| hello | 3.7 → 2.0 | — | — | 14 ms |
+| contours (seed 2) | 4.3 → 2.1 | — | — | 49 ms |
+
+- **Ink is the same:** every sketch's raw and optimised renders are pixel-identical at 150 dpi, and no point of either is more than 0.055 mm from the other's ink.
+- **Speed:** the optimiser takes 8–57 ms. On the fast sketches that's longer than the build, so the "a quarter of build time" target was off, though it's small in absolute terms.
+- **2-opt:** greedy ordering leaves short, local moves (checked with `t` renders), so 2-opt wasn't added.
 
 ## Phase 5: Noise and fields ⬜
 

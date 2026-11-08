@@ -1,5 +1,15 @@
 import type { Vec2 } from "wtc-math";
-import { Document, Random, renderToCanvas, toSVG, type Mask, type Polyline } from "wtc-drawer";
+import {
+  Document,
+  optimize,
+  plotStats,
+  Random,
+  renderToCanvas,
+  toSVG,
+  type Mask,
+  type PlotStats,
+  type Polyline,
+} from "wtc-drawer";
 import type { Debug, Sketch } from "./Sketch.js";
 
 // Every file in ./sketches is a sketch, keyed by file name: sketches/hello.ts → ?sketch=hello
@@ -17,13 +27,23 @@ const query = new URLSearchParams(location.search);
 const sketchName = query.get("sketch") ?? "hello";
 const sketch = sketches.get(sketchName);
 
-let doc: Document | null = null;
+/** The drawing as the sketch built it, and the copy optimised for plotting. */
+let raw: Document | null = null;
+let plotted: Document | null = null;
+let rawStats: PlotStats | null = null;
+let plottedStats: PlotStats | null = null;
 let seed = "";
 let showMask = false;
 let showDebug = query.has("debug");
+let showRaw = query.has("raw");
+let showTravel = query.has("travel");
 let guides: Guides | null = null;
 let maskImage: HTMLCanvasElement | null = null;
 let lastBuildMs = 0;
+let lastOptimizeMs = 0;
+
+/** The document being previewed and saved. */
+const shown = () => (showRaw ? raw : plotted);
 
 function readSeed(): string {
   const fromHash = new URLSearchParams(location.hash.slice(1)).get("seed");
@@ -41,18 +61,25 @@ function setSeed(next: string): void {
 function build(): void {
   if (!sketch) return;
   seed = readSeed();
-  doc = new Document(sketch);
+  raw = new Document(sketch);
   maskImage = null;
   guides = new Guides();
   const t0 = performance.now();
-  sketch.draw(doc, new Random(seed), guides);
-  lastBuildMs = performance.now() - t0;
+  sketch.draw(raw, new Random(seed), guides);
+  const t1 = performance.now();
+  plotted = optimize(raw);
+  const t2 = performance.now();
+  lastBuildMs = t1 - t0;
+  lastOptimizeMs = t2 - t1;
+  rawStats = plotStats(raw);
+  plottedStats = plotStats(plotted);
   render();
   updateHud();
 }
 
 function render(): void {
-  if (!doc) return;
+  const doc = shown();
+  if (!doc || !raw) return;
   const dpr = window.devicePixelRatio || 1;
   const pad = 32;
   const fit = Math.min(
@@ -66,8 +93,39 @@ function render(): void {
   canvas.height = Math.round(doc.height * cssScale * dpr);
   const scale = cssScale * dpr;
   renderToCanvas(doc, ctx, { scale });
-  if (showMask) drawMaskOverlay(doc.mask, scale);
+  if (showTravel) drawTravel(doc, scale);
+  // The mask and guides belong to the drawing as built.
+  if (showMask) drawMaskOverlay(raw.mask, scale);
   if (showDebug) guides?.render(ctx, scale);
+}
+
+/**
+ * Draws the pen-up moves: from home (top-left) to each path's start, from
+ * its end to the next, and back home after each layer.
+ */
+function drawTravel(doc: Document, scale: number): void {
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.lineWidth = Math.max(0.15, 1 / scale);
+  ctx.strokeStyle = "rgb(0 140 255 / 0.7)";
+  ctx.beginPath();
+  for (const layer of doc.layers) {
+    let x = 0;
+    let y = 0;
+    for (const path of layer.paths) {
+      if (path.pointCount < 2) continue;
+      const start = path.start!;
+      ctx.moveTo(x, y);
+      ctx.lineTo(start.x, start.y);
+      const exit = path.closed ? start : path.end!;
+      x = exit.x;
+      y = exit.y;
+    }
+    ctx.moveTo(x, y);
+    ctx.lineTo(0, 0);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** Records a sketch's debug guides, and draws them over the preview. */
@@ -143,25 +201,50 @@ function drawMaskOverlay(mask: Mask, scale: number): void {
 }
 
 function updateHud(): void {
-  if (!doc || !sketch) return;
-  const metres = (doc.length / 1000).toFixed(2);
+  const doc = shown();
+  if (!doc || !sketch || !rawStats || !plottedStats) return;
+  const a = rawStats;
+  const b = plottedStats;
+  const m = (mm: number) => (mm / 1000).toFixed(2);
+  const minutes = (s: number) => (s / 60).toFixed(s < 600 ? 1 : 0);
   const layers = doc.layers.map((l) => `${l.name} (${l.paths.length})`).join(", ");
+  const on = (flag: boolean) => (flag ? " (on)" : "");
   hud.textContent =
-    `${sketch.title} · seed ${seed} · ${doc.paper.name} ${doc.orientation} · ` +
-    `${doc.pathCount} paths, ${metres} m of ink · ${layers} · ${lastBuildMs.toFixed(1)} ms` +
-    `   —   [s] save SVG  [r] new seed  [←/→] step seed  [m] mask${showMask ? " (on)" : ""}` +
-    `  [d] debug${showDebug ? " (on)" : ""}`;
+    `${sketch.title} · seed ${seed} · ${doc.paper.name} ${doc.orientation} · ${layers}` +
+    ` · ink ${m(a.penDown)} → ${m(b.penDown)} m · travel ${m(a.penUp)} → ${m(b.penUp)} m` +
+    ` · lifts ${a.paths} → ${b.paths} · ~${minutes(a.seconds)} → ${minutes(b.seconds)} min` +
+    ` · built in ${lastBuildMs.toFixed(0)} ms, optimised in ${lastOptimizeMs.toFixed(0)} ms` +
+    ` · showing ${showRaw ? "raw" : "optimised"}` +
+    `   —   [s] save SVG  [r] new seed  [←/→] step seed  [o] optimised/raw  [t] travel${on(showTravel)}` +
+    `  [m] mask${on(showMask)}  [d] debug${on(showDebug)}`;
 }
 
 function downloadSVG(): void {
+  const doc = shown();
   if (!doc || !sketch) return;
   const svg = toSVG(doc, { title: `${sketch.title} — seed ${seed}` });
   const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${sketchName}-${seed}.svg`;
+  a.download = `${sketchName}-${seed}${showRaw ? "-raw" : ""}.svg`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Sets a view flag, keeps it in the URL so a reload or a new seed keeps it,
+ * and redraws.
+ */
+function keepFlag(name: string, on: boolean): boolean {
+  const url = new URL(location.href);
+  if (on) url.searchParams.set(name, "");
+  else url.searchParams.delete(name);
+  history.replaceState(null, "", url);
+  queueMicrotask(() => {
+    render();
+    updateHud();
+  });
+  return on;
 }
 
 function stepSeed(delta: number): void {
@@ -183,17 +266,15 @@ window.addEventListener("keydown", (e) => {
       render();
       updateHud();
       break;
-    case "d": {
-      showDebug = !showDebug;
-      // Kept in the URL, so a reload or a new seed keeps the setting.
-      const url = new URL(location.href);
-      if (showDebug) url.searchParams.set("debug", "");
-      else url.searchParams.delete("debug");
-      history.replaceState(null, "", url);
-      render();
-      updateHud();
+    case "d":
+      showDebug = keepFlag("debug", !showDebug);
       break;
-    }
+    case "o":
+      showRaw = keepFlag("raw", !showRaw);
+      break;
+    case "t":
+      showTravel = keepFlag("travel", !showTravel);
+      break;
     case "ArrowRight":
       stepSeed(1);
       break;

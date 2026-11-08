@@ -55,6 +55,12 @@ export {
 } from "./fill/tone.js";
 export { spiral, type SpiralOptions } from "./fill/spiral.js";
 export {
+  waveShade,
+  waveToneRange,
+  type WaveShadeOptions,
+  type WaveToneOptions,
+} from "./fill/wave.js";
+export {
   contourHatch,
   type ContourFieldOptions,
   type ContourHatchOptions,
@@ -64,6 +70,23 @@ export {
   contourSpiral,
   type ContourSpiralOptions,
 } from "./fill/contourSpiral.js";
+
+// Plotting
+export {
+  optimize,
+  optimizePaths,
+  type OptimizeOptions,
+} from "./plot/optimize.js";
+export { sortPaths, travelLength, type SortOptions } from "./plot/sort.js";
+export { mergePaths, type MergeOptions } from "./plot/merge.js";
+export { dedupePaths, type DedupeOptions } from "./plot/dedupe.js";
+export {
+  pathStats,
+  plotStats,
+  type PathStats,
+  type PlotStats,
+  type PlotStatsOptions,
+} from "./plot/stats.js";
 
 // Randomness
 export { Random } from "./random/Random.js";
