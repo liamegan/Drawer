@@ -3,6 +3,7 @@ import { Vec2 } from "wtc-math";
 import { insideTest } from "../geometry/clip.js";
 import type { Polyline } from "../geometry/Polyline.js";
 import { circle, rect } from "../geometry/shapes.js";
+import { sdf } from "../sdf/SDF.js";
 import {
   DEFAULT_THRESHOLDS,
   passCoverage,
@@ -121,6 +122,74 @@ describe("shade", () => {
     function isOnEdge(p: Vec2) {
       return Math.abs(Math.hypot(p.x - 20, p.y - 20) - 15) < 0.05;
     }
+  });
+
+  it("follows the outline with its first pass when `contour` is set", () => {
+    const split = (tone: number) => {
+      const out = shade(square, { tone, pen: 0.3, contour: true });
+      return {
+        rings: out.filter((l) => l.closed),
+        lines: out.filter((l) => !l.closed),
+      };
+    };
+    const light = split(0.3);
+    expect(light.lines).toEqual([]);
+    // Nested squares, outermost half a spacing in.
+    const spacing = toneSpacing(0.3, { pen: 0.3 })!;
+    expect(light.rings.length).toBe(Math.floor(15 / spacing - 0.5) + 1);
+    light.rings.forEach((ring, k) => {
+      expect(ring.bounds.min.x).toBeCloseTo((k + 0.5) * spacing, 6);
+    });
+    // Then cross-hatching on top, starting at `angle`.
+    const mid = split(0.5);
+    expect(mid.rings.length).toBeGreaterThan(0);
+    expect([...lineAngles(mid.lines)]).toEqual([Number((Math.PI / 4).toFixed(6))]);
+    // Three parallel passes by default, so four in all.
+    expect(lineAngles(split(0.95).lines).size).toBe(3);
+  });
+
+  it("dithers contours ring by ring for a tone field", () => {
+    const depths = (tone: number) =>
+      shade(square, {
+        tone: () => tone,
+        pen: 0.25,
+        contour: true,
+        angles: [],
+        thresholds: [0],
+      }).map((ring) => Number(ring.bounds.min.x.toFixed(6)));
+    const half = depths(0.5);
+    expect(half.length).toBeGreaterThan(20);
+    // Every other ring of the pen-width lattice.
+    for (let i = 1; i < half.length; i++) {
+      expect(half[i] - half[i - 1]).toBeCloseTo(0.5, 6);
+    }
+    const darker = new Set(depths(0.8));
+    expect(half.every((d) => darker.has(d))).toBe(true);
+    expect(darker.size).toBeGreaterThan(half.length);
+  });
+
+  it("insets every pass, contours included", () => {
+    const disc = circle(new Vec2(20, 20), 12);
+    const field = sdf(disc);
+    for (const tone of [0.9, (x: number) => x / 40]) {
+      const out = shade(disc, { tone, pen: 0.3, contour: true, inset: 1.5 });
+      expect(out.some((l) => l.closed)).toBe(true);
+      expect(out.some((l) => !l.closed)).toBe(true);
+      for (const l of out) {
+        for (const p of l.points) {
+          expect(field.at(p.x, p.y)).toBeLessThan(-1.5 + 0.02);
+        }
+      }
+    }
+    // The first contour is half a spacing in from the inset outline.
+    const spacing = toneSpacing(0.3, { pen: 0.3 })!;
+    const [outer] = shade(disc, { tone: 0.3, pen: 0.3, contour: true, inset: 1.5 });
+    for (const p of outer.points) {
+      expect(-field.at(p.x, p.y)).toBeCloseTo(1.5 + spacing / 2, 1);
+    }
+    expect(() => shade(disc, { tone: 0.5, pen: 0.3, inset: -1 })).toThrow(
+      RangeError,
+    );
   });
 });
 

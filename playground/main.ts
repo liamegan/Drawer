@@ -1,5 +1,6 @@
-import { Document, Random, renderToCanvas, toSVG, type Mask } from "wtc-drawer";
-import type { Sketch } from "./Sketch.js";
+import type { Vec2 } from "wtc-math";
+import { Document, Random, renderToCanvas, toSVG, type Mask, type Polyline } from "wtc-drawer";
+import type { Debug, Sketch } from "./Sketch.js";
 
 // Every file in ./sketches is a sketch, keyed by file name: sketches/hello.ts → ?sketch=hello
 const modules = import.meta.glob<{ default: Sketch }>("./sketches/*.ts", { eager: true });
@@ -12,12 +13,15 @@ const stage = document.querySelector<HTMLElement>("#stage")!;
 const hud = document.querySelector<HTMLElement>("#hud")!;
 const ctx = canvas.getContext("2d")!;
 
-const sketchName = new URLSearchParams(location.search).get("sketch") ?? "hello";
+const query = new URLSearchParams(location.search);
+const sketchName = query.get("sketch") ?? "hello";
 const sketch = sketches.get(sketchName);
 
 let doc: Document | null = null;
 let seed = "";
 let showMask = false;
+let showDebug = query.has("debug");
+let guides: Guides | null = null;
 let maskImage: HTMLCanvasElement | null = null;
 let lastBuildMs = 0;
 
@@ -39,8 +43,9 @@ function build(): void {
   seed = readSeed();
   doc = new Document(sketch);
   maskImage = null;
+  guides = new Guides();
   const t0 = performance.now();
-  sketch.draw(doc, new Random(seed));
+  sketch.draw(doc, new Random(seed), guides);
   lastBuildMs = performance.now() - t0;
   render();
   updateHud();
@@ -62,6 +67,56 @@ function render(): void {
   const scale = cssScale * dpr;
   renderToCanvas(doc, ctx, { scale });
   if (showMask) drawMaskOverlay(doc.mask, scale);
+  if (showDebug) guides?.render(ctx, scale);
+}
+
+/** Records a sketch's debug guides, and draws them over the preview. */
+class Guides implements Debug {
+  readonly #paths: { paths: readonly Polyline[]; color: string }[] = [];
+  readonly #labels: { text: string; at: Vec2; color: string }[] = [];
+
+  path(paths: Polyline | readonly Polyline[], color = "#e0218a"): void {
+    this.#paths.push({ paths: Array.isArray(paths) ? paths : [paths as Polyline], color });
+  }
+
+  label(text: string, at: Vec2, color = "#e0218a"): void {
+    this.#labels.push({ text, at, color });
+  }
+
+  render(ctx: CanvasRenderingContext2D, scale: number): void {
+    ctx.save();
+    ctx.scale(scale, scale);
+    // At least 1.5 device pixels, so guides read at any zoom.
+    const px = 1 / scale;
+    ctx.lineWidth = Math.max(0.2, 1.5 * px);
+    ctx.setLineDash([1.2, 0.8]);
+    ctx.lineJoin = "round";
+    for (const { paths, color } of this.#paths) {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      for (const path of paths) {
+        const pts = path.points;
+        if (pts.length < 2) continue;
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        if (path.closed) ctx.closePath();
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.font = `${Math.max(2.6, 11 * px)}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = Math.max(0.5, 3 * px);
+    ctx.strokeStyle = "rgb(255 255 255 / 0.85)";
+    for (const { text, at, color } of this.#labels) {
+      // A pale halo keeps labels readable over dense hatching.
+      ctx.strokeText(text, at.x, at.y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, at.x, at.y);
+    }
+    ctx.restore();
+  }
 }
 
 /** Paints the occlusion mask over the preview: red where covered. */
@@ -94,7 +149,8 @@ function updateHud(): void {
   hud.textContent =
     `${sketch.title} · seed ${seed} · ${doc.paper.name} ${doc.orientation} · ` +
     `${doc.pathCount} paths, ${metres} m of ink · ${layers} · ${lastBuildMs.toFixed(1)} ms` +
-    `   —   [s] save SVG  [r] new seed  [←/→] step seed  [m] mask${showMask ? " (on)" : ""}`;
+    `   —   [s] save SVG  [r] new seed  [←/→] step seed  [m] mask${showMask ? " (on)" : ""}` +
+    `  [d] debug${showDebug ? " (on)" : ""}`;
 }
 
 function downloadSVG(): void {
@@ -127,6 +183,17 @@ window.addEventListener("keydown", (e) => {
       render();
       updateHud();
       break;
+    case "d": {
+      showDebug = !showDebug;
+      // Kept in the URL, so a reload or a new seed keeps the setting.
+      const url = new URL(location.href);
+      if (showDebug) url.searchParams.set("debug", "");
+      else url.searchParams.delete("debug");
+      history.replaceState(null, "", url);
+      render();
+      updateHud();
+      break;
+    }
     case "ArrowRight":
       stepSeed(1);
       break;

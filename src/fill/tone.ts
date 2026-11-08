@@ -1,6 +1,14 @@
 import { clipPolyline } from "../geometry/clip.js";
-import type { Polyline } from "../geometry/Polyline.js";
-import { hatchWith, type HatchOptions } from "./hatch.js";
+import { asList, type Polyline } from "../geometry/Polyline.js";
+import type { FillRule } from "../geometry/scanline.js";
+import { sdf } from "../sdf/SDF.js";
+import { contourHatchWith } from "./contour.js";
+import {
+  anchorPoint,
+  hatchWith,
+  insetShapes,
+  type HatchOptions,
+} from "./hatch.js";
 
 /** Tone at a point on the page: 0 is bare paper, 1 is solid ink. */
 export type ToneField = (x: number, y: number) => number;
@@ -75,10 +83,19 @@ export interface ShadeOptions extends Omit<HatchOptions, "spacing" | "angle"> {
   tone: number | ToneField;
   /** Pen width in mm. */
   pen: number;
-  /** Angle of the first pass, in radians. Default π/4. */
+  /** Angle of the first parallel pass, in radians. Default π/4. */
   angle?: number;
-  /** Angle of each pass. Default: `angle`, then +π/2, +π/4, −π/4. */
+  /**
+   * Angle of each parallel pass. Default: `angle`, then +π/2, +π/4, −π/4,
+   * or the first three of those with `contour`.
+   */
   angles?: readonly number[];
+  /**
+   * Make the first pass contours that follow the outline (see
+   * `contourHatch`), with parallel passes cross-hatching over them as the
+   * tone darkens. `angles` then lists only the parallel passes. Default false.
+   */
+  contour?: boolean;
   /** Tone at which each pass starts. Default `DEFAULT_THRESHOLDS`. */
   thresholds?: readonly number[];
   /** See `toneSpacing`. Default 4 mm. Constant tones only. */
@@ -91,7 +108,8 @@ export interface ShadeOptions extends Omit<HatchOptions, "spacing" | "angle"> {
 
 /**
  * Shades closed shapes to a tone with cross-hatching: more passes, at
- * different angles, switch on as the tone darkens.
+ * different angles, switch on as the tone darkens. With `contour`, the first
+ * pass is contours that follow the outline instead of parallel lines.
  *
  * A constant tone gives each pass an even spacing (see `toneSpacing`). A
  * tone field instead dithers lines: each pass is a lattice at one pen width
@@ -99,6 +117,10 @@ export interface ShadeOptions extends Omit<HatchOptions, "spacing" | "angle"> {
  * wherever the local coverage beats it. Darker areas only ever gain lines,
  * so gradients stay clean, and the lattice is pinned like any other hatch, so
  * neighbouring shapes stay aligned. `join` is ignored for tone fields.
+ * Contours dither the same way, ring by ring.
+ *
+ * `inset` is shared by every pass, and contours start from the inset
+ * outline.
  */
 export function shade(
   shapes: Polyline | readonly Polyline[],
@@ -107,19 +129,36 @@ export function shade(
   const { tone, pen } = options;
   if (!(pen > 0)) throw new RangeError("shade: pen must be positive");
   const angle = options.angle ?? Math.PI / 4;
-  const angles = options.angles ?? [
+  const contour = options.contour ?? false;
+  const defaultAngles = [
     angle,
     angle + Math.PI / 2,
     angle + Math.PI / 4,
     angle - Math.PI / 4,
   ];
+  const angles = options.angles ?? defaultAngles.slice(0, contour ? 3 : 4);
   const thresholds = options.thresholds ?? DEFAULT_THRESHOLDS;
-  const passes = Math.min(angles.length, thresholds.length);
+  const first = contour ? 1 : 0;
+  const passes = Math.min(first + angles.length, thresholds.length);
   const minLength = options.minLength ?? 0.2;
+  const step = options.toneStep ?? 0.25;
+  const rule: FillRule = options.rule ?? "nonzero";
+  const inset = options.inset ?? 0;
+  if (!(inset >= 0) || !Number.isFinite(inset)) {
+    throw new RangeError("shade: inset must be a non-negative number");
+  }
+
+  const given = asList(shapes).filter((p) => p.closed && p.pointCount >= 3);
+  if (given.length === 0) return [];
+  // Inset once for every pass. The anchor is resolved first, so a local
+  // lattice sits where it would without the inset.
+  const closed =
+    inset > 0 ? insetShapes(given, inset, rule, options.resolution) : given;
+  if (closed.length === 0) return [];
   const base: Omit<HatchOptions, "spacing" | "angle"> = {
-    anchor: options.anchor,
+    anchor: anchorPoint(options.anchor ?? "page", given),
     offset: options.offset,
-    rule: options.rule,
+    rule: inset > 0 ? "evenodd" : rule,
     alternate: options.alternate,
     join: options.join,
     maxJoin: options.maxJoin,
@@ -129,26 +168,12 @@ export function shade(
 
   const out: Polyline[] = [];
   for (let pass = 0; pass < passes; pass++) {
-    if (typeof tone === "number") {
-      const coverage = passCoverage(tone, thresholds, pass);
-      const spacing = toneSpacing(coverage, {
-        pen,
-        maxSpacing: options.maxSpacing,
-        aligned: options.aligned,
-      });
-      if (spacing === null) continue;
-      out.push(
-        ...hatchWith(shapes, { ...base, angle: angles[pass], spacing }),
-      );
-    } else {
-      const most = passCoverage(1, thresholds, pass);
-      if (most <= 0) continue;
-      const step = options.toneStep ?? 0.25;
-      out.push(
-        ...hatchWith(
-          shapes,
-          { ...base, join: false, angle: angles[pass], spacing: pen },
-          (k, piece) => {
+    const most = passCoverage(1, thresholds, pass);
+    if (most <= 0) continue;
+    const dither =
+      typeof tone === "number"
+        ? undefined
+        : (k: number, piece: Polyline) => {
             const threshold = vanDerCorput(k);
             if (threshold >= most) return [];
             return clipPolyline(
@@ -156,8 +181,40 @@ export function shade(
               (x, y) => passCoverage(tone(x, y), thresholds, pass) <= threshold,
               { step, minLength },
             );
+          };
+    let spacing = pen;
+    if (typeof tone === "number") {
+      const s = toneSpacing(passCoverage(tone, thresholds, pass), {
+        pen,
+        maxSpacing: options.maxSpacing,
+        aligned: options.aligned,
+      });
+      if (s === null) continue;
+      spacing = s;
+    }
+
+    if (pass < first) {
+      // Shrinking an exact field keeps it exact inside, so contours are
+      // measured from the inset outline without re-tracing it.
+      const field = sdf(given, { rule }).offset(-inset);
+      out.push(
+        ...contourHatchWith(
+          field,
+          {
+            spacing,
+            offset: options.offset,
+            resolution: options.resolution,
+            minLength,
           },
+          dither,
         ),
+      );
+    } else {
+      const lines = { ...base, angle: angles[pass - first], spacing };
+      out.push(
+        ...(dither
+          ? hatchWith(closed, { ...lines, join: false }, dither)
+          : hatchWith(closed, lines)),
       );
     }
   }

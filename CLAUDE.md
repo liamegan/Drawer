@@ -5,7 +5,7 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
 `examples/GM/` is third-party reference code (Zancan's *Garden, Monoliths*). It's for study only: it's gitignored, and nothing should import it.
 
 ## Commands
-- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`. Keys: `s` saves the SVG, `r` picks a new seed, `←/→` steps the seed, `m` toggles the mask overlay.
+- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`. Keys: `s` saves the SVG, `r` picks a new seed, `←/→` steps the seed, `m` toggles the mask overlay, `d` toggles debug guides (`?debug` starts with them on). Sketches record guides through the third `draw` argument; they show on the preview only, never in the SVG.
 - `npm test`: Vitest. Tests live next to the code as `src/**/*.test.ts`.
 - `npm run typecheck`: checks the app (`tsconfig.json`) and `vite.config.ts` (`tsconfig.node.json`).
 - `npm run build`: `vite build` (lib mode, emits `dist/index.es.js`), then `tsc -p tsconfig.build.json` (emits `.d.ts` files only).
@@ -25,6 +25,11 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
   - **Clipping:** clipping to a shape is exact (`ScanlineSweep` or `clipToShape`), never via the mask.
   - **Spirals:** `spiral` shrinks the outline towards a centre, so it is always local and needs a star-shaped outline. Spacing is exact only when the outline has an inscribed circle.
   - **Separate pens for outline and hatch:** draw the outline with `doc.draw("ink", outline, { silhouette: false })`, then the hatch with `doc.draw("shade", lines, { silhouette: outline })`.
+- Distance fields (`src/sdf/`):
+  - **Sign:** negative inside, in mm, and signed by the fill rule (default `nonzero`). Distances are measured to the true boundary under that rule.
+  - **Grid:** nodes sit on a page lattice at multiples of `1 / resolution` (default 5 nodes per mm), so grids of different fields line up index for index.
+  - **Exactness:** a leaf from `sdf()` is exact. `union`, `intersect`, `subtract` and growing `offset`s are not exact inside, so contour fills (`contourHatch`, `contourSpiral`) re-trace a combined field's outline into an exact leaf first, unless `exact: false`. `SDF.exact` means "inside distances are true", which shrinking `offset`s keep.
+  - **Isolines:** outer rings run clockwise on screen, holes the other way, so either fill rule fills them. Inset outlines (`hatch({ inset })`) are hatched with even-odd.
 - New files follow Prettier defaults (80 columns), which is what the editor applies.
 
 ## wtc-math gotchas (verified on 1.4.0, pinned by `transforms.test.ts`)

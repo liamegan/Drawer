@@ -71,24 +71,27 @@ Filling closed shapes with plottable lines. (GM: `M_hatchShape` and its distribu
 
 ---
 
-## Phase 3: SDF and contour hatching ⬜
+## Phase 3: SDF and contour hatching ✅
 
 Outline-following fills for any shape, the general form of GM's leaf hatching. Chosen over repeated inset offsets.
 
-- [ ] `SDF` grid: exact distance to segments, signed with even-odd, at a chosen resolution
-- [ ] SDF combinators: union (`min`), intersection (`max`), subtraction and smooth union
-- [ ] Marching squares that pull isolines out as polylines, with interpolated crossings
-- [ ] Contour hatching: isolines at `d = k·spacing`, with spacing optionally driven by tone
-- [ ] Bonus features that come for free:
-  - [ ] boolean outlines (the isoline at `d = 0` of a combined SDF)
-  - [ ] offsets and insets (the isoline at `d = r`)
-- [ ] Post-processing: smoothing and simplification (RDP) of the extracted contours
-- [ ] Per-shape choice between contour and parallel hatching
-- [ ] Contour spiral: blend each contour ring into the next over one turn, giving one continuous stroke with even spacing in any shape, concave or irregular. This generalises Phase 2's `spiral`, which is exact only for outlines with an inscribed circle and needs a star-shaped outline.
-- [ ] Perpendicular inset for hatching: keep hatch lines a set distance inside the outline, measured square to it (the SDF isoline `d = -inset`), rather than trimming along each line
-- [ ] Sketch: organic blobs with contour fills, unioned and occluded
+- [x] `SDF` grid (`src/sdf/`): exact distance to segments, at a chosen resolution (default 5 nodes/mm). Nodes sit on a page lattice, so grids of different shapes line up. **Changed from the plan:** the sign follows the fill rule (default `nonzero`, as everywhere else), not even-odd only. Distances are measured to the true boundary under that rule, so overlapping rings under nonzero leave no internal edges.
+  - Exact distances in a band round each segment, then closest-segment propagation (8SSEDT-style sweeps, two rounds) with a walk along each ring's segments to catch thin Voronoi wedges. Against brute force on a 1500-point outline the worst error is 0.00009 mm. A 60 mm shape takes 12–30 ms.
+- [x] SDF combinators: `union`, `intersect`, `subtract` (each with an optional smooth radius, a polynomial smooth min) and `offset`. A lazy expression tree: nothing is computed until something samples it.
+- [x] Marching squares (`isolines(field, levels)`): every level in one pass, crossings interpolated linearly, saddles decided by the cell mean. Outer rings run clockwise and holes the other way, so either fill rule fills them. Sharp inward corners are cut by up to half a cell's diagonal (0.14 mm by default).
+- [x] Contour hatching: `contourHatch(shapes | field, { spacing, offset })`, rings at `d = −(offset + k)·spacing`. Combined fields are re-distanced from their outline first so rings stay evenly spaced; `exact: false` keeps the "metaball" creases where the shapes met.
+- [x] Bonus features that come for free:
+  - [x] boolean outlines (the isoline at `d = 0` of a combined SDF)
+  - [x] offsets and insets (the isoline at `d = r`)
+- [x] Post-processing: `smooth` (Chaikin) and `simplify` (RDP), applied to every traced path (`smooth`, `simplify`, `minLength` options)
+- [x] Per-shape choice between contour and parallel hatching: `shade(shape, { tone, pen, contour: true })` makes the first pass contours, with parallel passes cross-hatching over them as the tone darkens. Tone fields dither the rings like lines (van der Corput threshold per ring).
+- [x] Contour spiral: `contourSpiral(shapes | field, { spacing, start })`. Each turn walks a contour ring and sinks towards the next one along the field's gradient, giving one continuous stroke in any simply connected shape. Where the shape splits, the stroke carries on into one lobe and each other lobe gets its own spiral. Shapes with holes fall back to contour rings. Phase 2's `spiral` stays as the cheap, exact option for outlines with an inscribed circle.
+  - Turn spacing, in spacings (5th percentile, where 1 is exact): circle 0.99, square and hexagon 0.98, triangle 0.96, organic blobs 0.98, a U 0.91. A lobe that runs out between turns (a hand's fingers) leaves one turn up to 18% tight at the 1st percentile, so the extra machinery to fix that wasn't added.
+  - Parts too thin for another turn get a centre line, drawn there and back.
+- [x] Perpendicular inset for hatching: `hatch({ inset })` and `shade({ inset })` keep lines a set distance inside the outline, measured square to it (the isoline `d = −inset`). Line ends sit within 0.01 mm of the inset, or further in at sharp corners; never nearer the edge. The lattice doesn't move.
+- [x] Sketch: `contours.ts`, organic blobs (single, smooth-unioned clusters, and bitten), filled with contours, spirals, contour shading, metaball contours, and parallel hatching with and without an inset, and `sine` wave hatching, occluded front to back, with a halo of grown outlines round the nearest shape
 
-**Done when:** contour hatching follows the outline of arbitrary shapes and of boolean combinations, and stays within the SDF resolution of the true geometry.
+**Done when:** contour hatching follows the outline of arbitrary shapes and of boolean combinations, and stays within the SDF resolution of the true geometry. Met: `contour.test.ts` checks every ring point's depth to 0.1 mm (most within 0.01) on random concave blobs, holes, unions and grown fields, and the spiral tests check spacing, coverage and containment. 172 tests pass. The sketch builds in 150–225 ms in Node.
 
 ---
 
@@ -145,6 +148,7 @@ GM's best trick: shapes built in their own parameter space, so their hatching fo
 
 ## Phase 8: Playground and tooling ⬜
 
+- [x] Debug guides: sketches record construction shapes and labels through `draw(doc, random, debug)`, and `d` shows them over the preview only (added 2026-11-08 for the contours sketch's metaballs)
 - [ ] Parameter panel (Tweakpane) built from a sketch's declared params
 - [ ] Traits and features: weighted random choices recorded per seed, like fxhash features
 - [ ] PNG export at print resolution
@@ -177,3 +181,6 @@ GM's best trick: shapes built in their own parameter space, so their hatching fo
 | Use `Vec2` in hot inner loops? | No. Mask and clipping code works on raw numbers and typed arrays; `Vec2` stays at the API surface. The A5 occlusion sketch, about 10 m of line, builds in 15–50 ms in Node. |
 | Default mask resolution | 10 px/mm, through `occlusion.resolution`. Cut points land within about 0.025 mm of the true edge. |
 | Pin hatching to the page or to each shape? | The page by default, with `anchor: "local"` or a `Vec2` per call (Phase 2). Costs nothing for constant tone; tone fields use line dithering to stay aligned. |
+| Sign the SDF with even-odd, or with the fill rule? | The fill rule, default `nonzero` (Phase 3). Distances are measured to the true boundary under it, so overlapping rings leave no internal edges. |
+| How does the contour spiral handle splits? | It carries on into one lobe and starts a new spiral in each other one (Phase 3). Shapes with holes get contour rings instead. |
+| Contour spiral: arc length per ring, or carry the position along from the previous turn? | Arc length per ring (Phase 3). Carrying it only helps where a lobe runs out between turns, and there the error stayed under the 15% bar except in the 1st percentile. |

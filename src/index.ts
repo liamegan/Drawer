@@ -14,6 +14,16 @@ export {
   type ShapeClipOptions,
 } from "./geometry/clip.js";
 export { ScanlineSweep, type FillRule } from "./geometry/scanline.js";
+export { simplify, smooth } from "./geometry/simplify.js";
+
+// Distance fields
+export { SDF, sdf, type SDFOptions, type SampleOptions } from "./sdf/SDF.js";
+export { SDFGrid, type GridWindow } from "./sdf/grid.js";
+export {
+  isolines,
+  type IsolineOptions,
+  type PathFinishOptions,
+} from "./sdf/isolines.js";
 
 // Document
 export { Document, type DocumentOptions, type DrawOptions, type OcclusionOptions } from "./document/Document.js";
@@ -44,6 +54,16 @@ export {
   type ToneSpacingOptions,
 } from "./fill/tone.js";
 export { spiral, type SpiralOptions } from "./fill/spiral.js";
+export {
+  contourHatch,
+  type ContourFieldOptions,
+  type ContourHatchOptions,
+  type ContourShape,
+} from "./fill/contour.js";
+export {
+  contourSpiral,
+  type ContourSpiralOptions,
+} from "./fill/contourSpiral.js";
 
 // Randomness
 export { Random } from "./random/Random.js";
