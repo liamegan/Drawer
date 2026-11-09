@@ -214,14 +214,27 @@ GM's best trick: shapes built in their own parameter space, so their hatching fo
 
 ---
 
-## Phase 8: Playground and tooling ⬜
+## Phase 8: Playground and tooling ✅
 
 - [x] Debug guides: sketches record construction shapes and labels through `draw(doc, random, debug)`, and `d` shows them over the preview only (added 2026-11-08 for the contours sketch's metaballs)
-- [ ] Parameter panel (Tweakpane) built from a sketch's declared params
-- [ ] Traits and features: weighted random choices recorded per seed, like fxhash features
-- [ ] PNG export at print resolution
-- [ ] Batch export of a seed range to SVG
-- [ ] Keep the current seed across hot reloads
+- [x] Parameter panel (Tweakpane 4, a dev dependency, `playground/panel.ts`), built from a sketch's declared params.
+  - **Declaring:** `defineSketch({ params: { … } })` types them in `draw(doc, random, debug, { params, traits })`. Specs are numbers (sliders), booleans, `options` lists and `color`s.
+  - **Building:** changes rebuild once per frame.
+  - **URL:** non-default values live in the URL (`?p.halo=1.2`), so reloads, new seeds and shared links keep them; bad values fall back to the default and numbers are clamped.
+  - **Panel:** it also has the seed, its traits, view toggles and export.
+- [x] Traits:
+  - **Library:** `random.weighted({ a: 1, b: 2 })` (or `[value, weight]` pairs) draws once, in the order given, so it can replace a `value() < p` threshold without changing any seed.
+  - **Playground:** `traits.pick` / `traits.set` record a seed's traits for the HUD and panel, and for the SVG's new `<desc>` (`toSVG({ description })`), with any changed params.
+  - **Sketches:** stones (View, Stones, Kinds) and meadow (Plants, Leaves) record theirs. Both still produce byte-identical output at default params. Over stones seeds 1–60, View comes out 67% oblique to 33% orthographic, as weighted.
+- [x] PNG export at print resolution: `p` or the panel renders the artwork alone at 150, 300 or 600 dpi; if the browser refuses a canvas that size, the HUD says so.
+- [x] Batch export of a seed range from the panel, through a dev-only Vite plugin (`tools/export-plugin.ts`). It writes SVGs (and PNGs) into `exports/<sketch>/`, with `traits.json` holding each seed's traits and a tally; the tally also shows in the HUD. It yields between seeds and can be stopped. The plugin only writes `.svg`, `.png` and `.json` inside `exports/`.
+  - The roadmap's open question (Node CLI or browser) went to the browser, so the export uses exactly the preview's code path (`playground/run.ts`) and can make PNGs.
+- [x] Seed and state across hot reloads:
+  - **What's kept:** the seed, view flags (now including `?mask` and `?nopanel`) and params live in the URL.
+  - **Sketch edits:** editing a sketch (or `sketches/lib/`) is accepted by `main.ts` and rebuilds in place with the panel intact.
+  - **Library edits:** these reload the page, and the URL survives.
+
+**Done when:** sketches can expose typed params in a panel, seeds record traits, and a seed range exports to files with a trait tally. Met: 298 tests pass; typecheck covers `tools/`; the library build doesn't include Tweakpane. The export endpoint was checked against a running dev server; the panel itself is checked by hand.
 
 ---
 

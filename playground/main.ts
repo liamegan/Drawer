@@ -1,49 +1,39 @@
-import type { Vec2 } from "wtc-math";
-import {
-  Document,
-  optimize,
-  plotStats,
-  Random,
-  renderToCanvas,
-  toSVG,
-  type Mask,
-  type PlotStats,
-  type Polyline,
-} from "wtc-drawer";
-import type { Debug, Sketch } from "./Sketch.js";
-
-// Every file in ./sketches is a sketch, keyed by file name: sketches/hello.ts → ?sketch=hello
-const modules = import.meta.glob<{ default: Sketch }>("./sketches/*.ts", { eager: true });
-const sketches = new Map(
-  Object.entries(modules).map(([path, mod]) => [path.replace(/^.*\/(.+)\.ts$/, "$1"), mod.default]),
-);
+import { renderToCanvas, type Document, type Mask } from "wtc-drawer";
+import { exportRange, renderPNG } from "./export.js";
+import { Panel, type ViewFlags } from "./panel.js";
+import { readParams, writeParams, type Values } from "./params.js";
+import { runSketch, runSVG, type Run } from "./run.js";
+import type { Sketch } from "./Sketch.js";
+import { sketches as initialSketches } from "./sketches.js";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#preview")!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
 const hud = document.querySelector<HTMLElement>("#hud")!;
+const panelBox = document.querySelector<HTMLElement>("#panel")!;
 const ctx = canvas.getContext("2d")!;
 
 const query = new URLSearchParams(location.search);
 const sketchName = query.get("sketch") ?? "hello";
-const sketch = sketches.get(sketchName);
+let sketches = initialSketches;
+let sketch: Sketch | undefined = sketches.get(sketchName);
 
-/** The drawing as the sketch built it, and the copy optimised for plotting. */
-let raw: Document | null = null;
-let plotted: Document | null = null;
-let rawStats: PlotStats | null = null;
-let plottedStats: PlotStats | null = null;
-let seed = "";
-let showMask = false;
+/** The current build: raw and optimised drawings, guides, traits, stats. */
+let run: Run | null = null;
+let params: Values = readParams(sketch?.params, query);
+let showMask = query.has("mask");
 let showDebug = query.has("debug");
 let showRaw = query.has("raw");
 let showTravel = query.has("travel");
-let guides: Guides | null = null;
+let showPanel = !query.has("nopanel");
 let maskImage: HTMLCanvasElement | null = null;
-let lastBuildMs = 0;
-let lastOptimizeMs = 0;
+/** Shown in the HUD instead of the stats while set: export progress, errors. */
+let status = "";
+let exporting = false;
+let stopExport = false;
 
 /** The document being previewed and saved. */
-const shown = () => (showRaw ? raw : plotted);
+const shown = (): Document | null =>
+  run ? (showRaw ? run.raw : run.plotted) : null;
 
 function readSeed(): string {
   const fromHash = new URLSearchParams(location.hash.slice(1)).get("seed");
@@ -60,26 +50,17 @@ function setSeed(next: string): void {
 
 function build(): void {
   if (!sketch) return;
-  seed = readSeed();
-  raw = new Document(sketch);
+  run = runSketch(sketch, readSeed(), params);
   maskImage = null;
-  guides = new Guides();
-  const t0 = performance.now();
-  sketch.draw(raw, new Random(seed), guides);
-  const t1 = performance.now();
-  plotted = optimize(raw);
-  const t2 = performance.now();
-  lastBuildMs = t1 - t0;
-  lastOptimizeMs = t2 - t1;
-  rawStats = plotStats(raw);
-  plottedStats = plotStats(plotted);
+  const traits = run.traits.entries().map(([n, v]) => `${n}: ${v}`);
+  panel.showRun(run.seed, traits.join("\n"));
   render();
   updateHud();
 }
 
 function render(): void {
   const doc = shown();
-  if (!doc || !raw) return;
+  if (!doc || !run) return;
   const dpr = window.devicePixelRatio || 1;
   const pad = 32;
   const fit = Math.min(
@@ -95,8 +76,8 @@ function render(): void {
   renderToCanvas(doc, ctx, { scale });
   if (showTravel) drawTravel(doc, scale);
   // The mask and guides belong to the drawing as built.
-  if (showMask) drawMaskOverlay(raw.mask, scale);
-  if (showDebug) guides?.render(ctx, scale);
+  if (showMask) drawMaskOverlay(run.raw.mask, scale);
+  if (showDebug) run.guides.render(ctx, scale);
 }
 
 /**
@@ -129,55 +110,6 @@ function drawTravel(doc: Document, scale: number): void {
   ctx.restore();
 }
 
-/** Records a sketch's debug guides, and draws them over the preview. */
-class Guides implements Debug {
-  readonly #paths: { paths: readonly Polyline[]; color: string }[] = [];
-  readonly #labels: { text: string; at: Vec2; color: string }[] = [];
-
-  path(paths: Polyline | readonly Polyline[], color = "#e0218a"): void {
-    this.#paths.push({ paths: Array.isArray(paths) ? paths : [paths as Polyline], color });
-  }
-
-  label(text: string, at: Vec2, color = "#e0218a"): void {
-    this.#labels.push({ text, at, color });
-  }
-
-  render(ctx: CanvasRenderingContext2D, scale: number): void {
-    ctx.save();
-    ctx.scale(scale, scale);
-    // At least 1.5 device pixels, so guides read at any zoom.
-    const px = 1 / scale;
-    ctx.lineWidth = Math.max(0.2, 1.5 * px);
-    ctx.setLineDash([1.2, 0.8]);
-    ctx.lineJoin = "round";
-    for (const { paths, color } of this.#paths) {
-      ctx.strokeStyle = color;
-      ctx.beginPath();
-      for (const path of paths) {
-        const pts = path.points;
-        if (pts.length < 2) continue;
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-        if (path.closed) ctx.closePath();
-      }
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    ctx.font = `${Math.max(2.6, 11 * px)}px ui-monospace, Menlo, monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineWidth = Math.max(0.5, 3 * px);
-    ctx.strokeStyle = "rgb(255 255 255 / 0.85)";
-    for (const { text, at, color } of this.#labels) {
-      // A pale halo keeps labels readable over dense hatching.
-      ctx.strokeText(text, at.x, at.y);
-      ctx.fillStyle = color;
-      ctx.fillText(text, at.x, at.y);
-    }
-    ctx.restore();
-  }
-}
-
 /** Paints the occlusion mask over the preview: red where covered. */
 function drawMaskOverlay(mask: Mask, scale: number): void {
   if (!maskImage) {
@@ -202,79 +134,206 @@ function drawMaskOverlay(mask: Mask, scale: number): void {
 }
 
 function updateHud(): void {
+  if (status) {
+    hud.textContent = status;
+    return;
+  }
   const doc = shown();
-  if (!doc || !sketch || !rawStats || !plottedStats) return;
-  const a = rawStats;
-  const b = plottedStats;
+  if (!doc || !sketch || !run) return;
+  const a = run.rawStats;
+  const b = run.plottedStats;
   const m = (mm: number) => (mm / 1000).toFixed(2);
   const minutes = (s: number) => (s / 60).toFixed(s < 600 ? 1 : 0);
-  const layers = doc.layers.map((l) => `${l.name} (${l.paths.length})`).join(", ");
+  const layers = doc.layers
+    .map((l) => `${l.name} (${l.paths.length})`)
+    .join(", ");
   const on = (flag: boolean) => (flag ? " (on)" : "");
+  const traits = run.traits.size > 0 ? ` · ${run.traits}` : "";
   hud.textContent =
-    `${sketch.title} · seed ${seed} · ${doc.paper.name} ${doc.orientation} · ${layers}` +
-    ` · ink ${m(a.penDown)} → ${m(b.penDown)} m · travel ${m(a.penUp)} → ${m(b.penUp)} m` +
-    ` · lifts ${a.paths} → ${b.paths} · ~${minutes(a.seconds)} → ${minutes(b.seconds)} min` +
-    ` · built in ${lastBuildMs.toFixed(0)} ms, optimised in ${lastOptimizeMs.toFixed(0)} ms` +
+    `${sketch.title} · seed ${run.seed}${traits}` +
+    ` · ${doc.paper.name} ${doc.orientation} · ${layers}` +
+    ` · ink ${m(a.penDown)} → ${m(b.penDown)} m` +
+    ` · travel ${m(a.penUp)} → ${m(b.penUp)} m` +
+    ` · lifts ${a.paths} → ${b.paths}` +
+    ` · ~${minutes(a.seconds)} → ${minutes(b.seconds)} min` +
+    ` · built in ${run.buildMs.toFixed(0)} ms,` +
+    ` optimised in ${run.optimizeMs.toFixed(0)} ms` +
     ` · showing ${showRaw ? "raw" : "optimised"}` +
-    `   —   [s] save SVG  [r] new seed  [←/→] step seed  [o] optimised/raw  [t] travel${on(showTravel)}` +
-    `  [m] mask${on(showMask)}  [d] debug${on(showDebug)}`;
+    `   —   [s] save SVG  [p] save PNG  [r] new seed  [←/→] step seed` +
+    `  [o] optimised/raw  [t] travel${on(showTravel)}` +
+    `  [m] mask${on(showMask)}  [d] debug${on(showDebug)}  [h] panel`;
 }
 
-function downloadSVG(): void {
-  const doc = shown();
-  if (!doc || !sketch) return;
-  const svg = toSVG(doc, { title: `${sketch.title} — seed ${seed}` });
-  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+/** Shows `text` in the HUD for a while (or until cleared with ""). */
+function say(text: string, ms = 0): void {
+  status = text;
+  updateHud();
+  if (ms > 0) {
+    setTimeout(() => {
+      if (status === text) say("");
+    }, ms);
+  }
+}
+
+function download(name: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${sketchName}-${seed}${showRaw ? "-raw" : ""}.svg`;
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
 }
 
+const fileBase = () => `${sketchName}-${run?.seed}${showRaw ? "-raw" : ""}`;
+
+function downloadSVG(): void {
+  if (!run || !sketch) return;
+  const svg = runSVG(sketch, run, showRaw);
+  download(`${fileBase()}.svg`, new Blob([svg], { type: "image/svg+xml" }));
+}
+
+async function downloadPNG(dpi: number): Promise<void> {
+  const doc = shown();
+  if (!doc) return;
+  say(`Rendering a ${dpi} dpi PNG…`);
+  try {
+    download(`${fileBase()}.png`, await renderPNG(doc, dpi));
+    say("");
+  } catch (error) {
+    say(`PNG failed: ${(error as Error).message}`, 6000);
+  }
+}
+
+/** Builds and saves every seed in a range into exports/<sketch>/. */
+async function batch(from: number, to: number, png: boolean, dpi: number) {
+  if (!sketch || exporting) return;
+  exporting = true;
+  stopExport = false;
+  try {
+    const result = await exportRange({
+      sketch,
+      name: sketchName,
+      from,
+      to,
+      params,
+      raw: showRaw,
+      png,
+      dpi,
+      progress: (done, total, r) =>
+        say(`Exporting ${done} / ${total} (seed ${r.seed})… stop in the panel`),
+      stopped: () => stopExport,
+    });
+    const how = result.stopped ? "Stopped after" : "Exported";
+    const tally = result.tally.toString();
+    say(
+      `${how} ${result.done} of ${result.total} seeds` +
+        ` to exports/${sketchName}/${tally ? ` · ${tally}` : ""}`,
+      15000,
+    );
+  } catch (error) {
+    say(`Export failed: ${(error as Error).message}`, 10000);
+  } finally {
+    exporting = false;
+  }
+}
+
+/** Rewrites the query string (flags and params) without reloading. */
+function updateURL(edit: (q: URLSearchParams) => void): void {
+  const url = new URL(location.href);
+  edit(url.searchParams);
+  history.replaceState(null, "", url);
+}
+
 /**
  * Sets a view flag, keeps it in the URL so a reload or a new seed keeps it,
- * and redraws.
+ * mirrors it in the panel, and redraws.
  */
-function keepFlag(name: string, on: boolean): boolean {
-  const url = new URL(location.href);
-  if (on) url.searchParams.set(name, "");
-  else url.searchParams.delete(name);
-  history.replaceState(null, "", url);
-  queueMicrotask(() => {
-    render();
-    updateHud();
+function setView(flag: keyof ViewFlags, on: boolean): void {
+  if (flag === "raw") showRaw = on;
+  else if (flag === "travel") showTravel = on;
+  else if (flag === "mask") showMask = on;
+  else showDebug = on;
+  updateURL((q) => (on ? q.set(flag, "") : q.delete(flag)));
+  panel.setView(flag, on);
+  render();
+  updateHud();
+}
+
+function togglePanel(): void {
+  showPanel = !showPanel;
+  panelBox.hidden = !showPanel;
+  updateURL((q) => (showPanel ? q.delete("nopanel") : q.set("nopanel", "")));
+  render();
+}
+
+/**
+ * Changes params, keeps the changed ones in the URL, and rebuilds once per
+ * frame, so dragging a slider doesn't queue up builds.
+ */
+let pending = false;
+function setParams(next: Values): void {
+  params = next;
+  updateURL((q) => writeParams(sketch?.params, params, q));
+  if (pending) return;
+  pending = true;
+  requestAnimationFrame(() => {
+    pending = false;
+    build();
   });
-  return on;
 }
 
 function stepSeed(delta: number): void {
-  const n = Number.parseInt(seed, 10);
+  const n = Number.parseInt(run?.seed ?? "", 10);
   setSeed(String((Number.isNaN(n) ? 0 : n) + delta));
 }
 
+const randomSeed = () => setSeed(String(Math.floor(Math.random() * 1e9)));
+
+const panel = new Panel(
+  panelBox,
+  {
+    params: setParams,
+    seed: setSeed,
+    step: stepSeed,
+    randomSeed,
+    view: setView,
+    saveSVG: downloadSVG,
+    savePNG: (dpi) => void downloadPNG(dpi),
+    exportRange: (from, to, png, dpi) => void batch(from, to, png, dpi),
+    stop: () => (stopExport = true),
+  },
+  { raw: showRaw, travel: showTravel, mask: showMask, debug: showDebug },
+);
+panelBox.hidden = !showPanel;
+
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // Typing in the panel (a seed, a number) isn't a shortcut.
+  if (e.target instanceof HTMLInputElement) return;
   switch (e.key) {
     case "s":
       downloadSVG();
       break;
+    case "p":
+      void downloadPNG(panel.dpi);
+      break;
     case "r":
-      setSeed(String(Math.floor(Math.random() * 1e9)));
+      randomSeed();
       break;
     case "m":
-      showMask = !showMask;
-      render();
-      updateHud();
+      setView("mask", !showMask);
       break;
     case "d":
-      showDebug = keepFlag("debug", !showDebug);
+      setView("debug", !showDebug);
       break;
     case "o":
-      showRaw = keepFlag("raw", !showRaw);
+      setView("raw", !showRaw);
       break;
     case "t":
-      showTravel = keepFlag("travel", !showTravel);
+      setView("travel", !showTravel);
+      break;
+    case "h":
+      togglePanel();
       break;
     case "ArrowRight":
       stepSeed(1);
@@ -287,8 +346,26 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("hashchange", build);
 window.addEventListener("resize", render);
 
+// Editing a sketch (or sketches/lib) swaps the new code in and rebuilds at
+// the same seed and params, keeping every view setting and the panel. Library
+// edits reach main.ts directly and reload the page, which the URL survives.
+if (import.meta.hot) {
+  import.meta.hot.accept("./sketches.ts", (mod) => {
+    if (!mod) return;
+    sketches = mod.sketches as typeof sketches;
+    sketch = sketches.get(sketchName);
+    if (!sketch) return;
+    params = readParams(sketch.params, new URLSearchParams(location.search));
+    panel.setSketch(sketch, params);
+    build();
+  });
+}
+
 if (sketch) {
+  panel.setSketch(sketch, params);
   build();
 } else {
-  hud.textContent = `No sketch "${sketchName}". Available: ${[...sketches.keys()].join(", ")}`;
+  hud.textContent =
+    `No sketch "${sketchName}". ` +
+    `Available: ${[...sketches.keys()].join(", ")}`;
 }

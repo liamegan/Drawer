@@ -12,6 +12,11 @@ export interface SVGOptions {
   background?: boolean | string;
   /** Written to the SVG's <title>. */
   title?: string;
+  /**
+   * Written to the SVG's <desc>, which plotting software ignores: notes such
+   * as the seed's traits or the parameters used. Line breaks are kept.
+   */
+  description?: string;
 }
 
 const XML_ESCAPES: Record<string, string> = {
@@ -61,6 +66,7 @@ export function toSVG(doc: Document, options: SVGOptions = {}): string {
   ];
 
   if (options.title) out.push(`  <title>${escapeXML(options.title)}</title>`);
+  if (options.description) out.push(`  <desc>${escapeXML(options.description)}</desc>`);
 
   if (options.background) {
     const fill = options.background === true ? doc.paperColor : options.background;

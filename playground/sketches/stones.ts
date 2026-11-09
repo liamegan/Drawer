@@ -18,7 +18,7 @@ import {
   type Projection,
   type Random,
 } from "wtc-drawer";
-import type { Debug, Sketch } from "../Sketch.js";
+import { defineSketch, type Debug } from "../Sketch.js";
 import {
   grassRows,
   ground,
@@ -50,16 +50,25 @@ const LIGHT = new Vec3(-1, 2, 0.6);
  *
  * Debug (`d`) shows each visible face's normal as a tick from its centre,
  * the faces turned away (dashed), and labels each object and the view.
+ *
+ * Params: the view (the seed's, or forced), the halo, the crease angle and
+ * the darkest tone. Traits: View, Stones (how many) and Kinds.
  */
-const sketch: Sketch = {
+const sketch = defineSketch({
   title: "Stones",
   paper: paper.A5,
   orientation: "landscape",
   margin: 12,
   paperColor: "#f4f1ea",
   occlusion: { gap: 0.4 },
+  params: {
+    view: { value: "seed", options: ["seed", "oblique", "orthographic"] },
+    halo: { value: 0.6, min: 0, max: 2, step: 0.05 },
+    crease: { value: 15, min: 0, max: 45, step: 1, label: "crease °" },
+    darkest: { value: 0.5, min: 0.1, max: 1, step: 0.01, label: "darkest" },
+  },
 
-  draw(doc, random, debug) {
+  draw(doc, random, debug, { params, traits }) {
     const area = doc.drawArea;
     const noise = new Noise(random.fork("noise"));
     const rng = random.fork("meadow");
@@ -74,17 +83,24 @@ const sketch: Sketch = {
     const items: Item[] = [];
     grassRows(doc, noise, rng, groundAt, items);
 
-    const orthographicView = stones.value() < 1 / 3;
-    const projection = orthographicView
-      ? orthographic({ elevation: 0.35, azimuth: 0 })
-      : oblique();
-    debug.label(
-      orthographicView ? "orthographic" : "oblique",
-      new Vec2(area.max.x - 14, area.y + 4),
+    // Always drawn, so forcing a view leaves everything else as it was.
+    const seedView = traits.pick("View", stones, {
+      orthographic: 1,
+      oblique: 2,
+    });
+    const view = traits.set(
+      "View",
+      params.view === "seed" ? seedView : params.view,
     );
+    const projection =
+      view === "orthographic"
+        ? orthographic({ elevation: 0.35, azimuth: 0 })
+        : oblique();
+    debug.label(view, new Vec2(area.max.x - 14, area.y + 4));
 
-    const count = stones.int(2, 4);
+    const count = traits.set("Stones", stones.int(2, 4));
     const kinds = stones.shuffle([...KINDS, "block" as const]).slice(0, count);
+    traits.set("Kinds", [...new Set(kinds)].sort().join(", "));
     const span = area.width / count;
     for (let i = 0; i < count; i++) {
       // On a row, so that row's grass hides the cut at its base.
@@ -101,7 +117,8 @@ const sketch: Sketch = {
         at,
         pen: stonePen.pen.width,
         light: LIGHT,
-        tone: [0.04, 0.5],
+        tone: [0.04, params.darkest],
+        crease: (params.crease * Math.PI) / 180,
       });
       guides(debug, mesh, projection, at, kinds[i]);
       items.push({
@@ -113,7 +130,7 @@ const sketch: Sketch = {
           doc.draw("stone", drawing.creases, { silhouette: false, bounds });
           doc.draw("stone", drawing.hatch, {
             silhouette: drawing.silhouette,
-            gap: 0.6,
+            gap: params.halo,
             bounds,
           });
         },
@@ -124,7 +141,7 @@ const sketch: Sketch = {
     for (const item of items) item.draw();
     horizonLine(doc, noise, horizon);
   },
-};
+});
 
 /**
  * One object, standing on y = 0 at its origin, turned, tipped and sunk, and

@@ -62,4 +62,42 @@ describe("Random", () => {
     const b = Bounds.fromRect(5, 5, 10, 10);
     for (let i = 0; i < 100; i++) expect(b.contains(r.pointIn(b))).toBe(true);
   });
+
+  it("weighted picks in proportion to the weights", () => {
+    const r = new Random("weights");
+    const counts = { a: 0, b: 0, c: 0, never: 0 };
+    const n = 20000;
+    for (let i = 0; i < n; i++) {
+      counts[r.weighted({ a: 1, never: 0, b: 2, c: 7 })]++;
+    }
+    expect(counts.never).toBe(0);
+    expect(counts.a / n).toBeCloseTo(0.1, 1);
+    expect(counts.b / n).toBeCloseTo(0.2, 1);
+    expect(counts.c / n).toBeCloseTo(0.7, 1);
+    // Pairs take any value.
+    const pairs = [
+      [3, 1],
+      [5, 0],
+    ] as const;
+    expect(r.weighted(pairs)).toBe(3);
+  });
+
+  it("weighted draws once, in the order given", () => {
+    const a = new Random(9);
+    const b = new Random(9);
+    for (let i = 0; i < 500; i++) {
+      const view = a.weighted({ orthographic: 1, oblique: 2 });
+      expect(view === "orthographic").toBe(b.value() < 1 / 3);
+    }
+    expect(a.value()).toBe(b.value()); // still in step
+  });
+
+  it("weighted rejects weights it can't use", () => {
+    const r = new Random(1);
+    expect(() => r.weighted({})).toThrow(RangeError);
+    expect(() => r.weighted({ a: 0 })).toThrow(RangeError);
+    expect(() => r.weighted({ a: 1, b: -1 })).toThrow(RangeError);
+    expect(() => r.weighted({ a: Number.NaN })).toThrow(RangeError);
+    expect(() => r.weighted({ a: Infinity })).toThrow(RangeError);
+  });
 });

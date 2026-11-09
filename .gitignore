@@ -1,5 +1,7 @@
 node_modules
 dist
+# batch exports from the playground
+exports/
 *.log
 .DS_Store
 # third-party reference code (Zancan, Garden Monoliths) — not ours to publish

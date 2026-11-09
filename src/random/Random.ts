@@ -91,6 +91,42 @@ export class Random {
     return items[Math.floor(this.value() * items.length)];
   }
 
+  /**
+   * A weighted choice: each option comes up in proportion to its weight.
+   * Give `{ name: weight }` to get a name back, or `[value, weight]` pairs
+   * for any values. Options are laid out in the order given and one
+   * `value()` is drawn, so `weighted({ a: 1, b: 2 })` picks "a" exactly when
+   * `value() < 1/3` would have been true. Zero weights never come up.
+   * Throws on a negative or non-finite weight, or when nothing has weight.
+   */
+  weighted<K extends string>(weights: Readonly<Record<K, number>>): K;
+  weighted<T>(choices: readonly (readonly [T, number])[]): T;
+  weighted<T>(
+    choices: Readonly<Record<string, number>> | readonly (readonly [T, number])[],
+  ): T | string {
+    const list: readonly (readonly [T | string, number])[] = Array.isArray(choices)
+      ? choices
+      : Object.entries(choices);
+    let total = 0;
+    for (const [, w] of list) {
+      if (!(w >= 0) || !Number.isFinite(w)) {
+        throw new RangeError("Random.weighted: weights must be finite and not negative");
+      }
+      total += w;
+    }
+    if (!(total > 0)) throw new RangeError("Random.weighted needs a weight above 0");
+    const r = this.value() * total;
+    let sum = 0;
+    let last: T | string = list[0][0];
+    for (const [item, w] of list) {
+      if (w === 0) continue;
+      sum += w;
+      last = item;
+      if (r < sum) return item;
+    }
+    return last; // Only reached through rounding at the very top.
+  }
+
   /** A shuffled copy of `items` (Fisher–Yates). */
   shuffle<T>(items: readonly T[]): T[] {
     const out = items.slice();

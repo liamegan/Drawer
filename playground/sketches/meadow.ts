@@ -56,7 +56,7 @@ const sketch: Sketch = {
   paperColor: "#f4f1ea",
   occlusion: { gap: 0.4 },
 
-  draw(doc, random, debug) {
+  draw(doc, random, debug, { traits }) {
     const area = doc.drawArea;
     const noise = new Noise(random.fork("noise"));
     const rng = random.fork("meadow");
@@ -72,11 +72,12 @@ const sketch: Sketch = {
     grassRows(doc, noise, rng, groundAt, items);
 
     // A few plants, each at its own depth among the rows.
-    const plants = rng.int(3, 5);
+    const plants = traits.set("Plants", rng.int(3, 5));
     // Every kind first, trimmed before shuffling so each one appears.
     const kinds = rng.shuffle(
       [...KINDS, rng.pick(KINDS), rng.pick(KINDS)].slice(0, plants),
     );
+    traits.set("Leaves", [...new Set(kinds)].sort().join(", "));
     for (let i = 0; i < plants; i++) {
       const d = rng.range(0.45, 0.95);
       const span = area.width / plants;

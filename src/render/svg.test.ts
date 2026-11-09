@@ -62,6 +62,16 @@ describe("toSVG", () => {
     expect(toSVG(doc)).not.toContain("<path");
   });
 
+  it("writes a title and an escaped description only when given", () => {
+    expect(svg).not.toContain("<desc>");
+    const described = toSVG(makeDoc(), {
+      title: "Stones — seed 4",
+      description: "View: oblique\nKinds: urn & block",
+    });
+    expect(described).toContain("<title>Stones — seed 4</title>");
+    expect(described).toContain("<desc>View: oblique\nKinds: urn &amp; block</desc>");
+  });
+
   it("only adds a background when asked", () => {
     expect(svg).not.toContain("<rect");
     expect(toSVG(makeDoc(), { background: true })).toContain('fill="#ffffff"');

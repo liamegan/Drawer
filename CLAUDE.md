@@ -5,9 +5,24 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
 `examples/GM/` is third-party reference code (Zancan's *Garden, Monoliths*). It's for study only: it's gitignored, and nothing should import it.
 
 ## Commands
-- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`. Keys: `s` saves the SVG, `r` picks a new seed, `←/→` steps the seed, `o` switches the preview and `s` between the optimised and raw drawing (optimised by default), `t` overlays pen-up travel, `m` toggles the mask overlay, `d` toggles debug guides. `o`, `t` and `d` are kept in the URL (`?raw`, `?travel`, `?debug`). Sketches record guides through the third `draw` argument; they show on the preview only, never in the SVG.
+- `npm run dev`: playground at `/?sketch=<file-name>#seed=<seed>`.
+  - **Keys:**
+    - `s` saves the SVG and `p` a PNG (at the panel's dpi, default 300).
+    - `r` picks a new seed and `←/→` steps it.
+    - `o` switches the preview and saves between the optimised and raw drawing (optimised by default).
+    - `t` overlays pen-up travel, `m` the mask and `d` debug guides.
+    - `h` hides the panel.
+  - **URL:** view flags are kept in the URL (`?raw`, `?travel`, `?mask`, `?debug`, `?nopanel`), as are params that differ from their defaults (`?p.halo=1.2`).
+  - **Hot reload:** editing a sketch or `sketches/lib/` rebuilds in place. Editing `src/` reloads the page, and the URL keeps the state.
+  - **Panel** (Tweakpane, `playground/panel.ts`): the sketch's params, the seed and its traits, view toggles and export.
+  - **Batch export:** "export range" builds seeds from–to and writes `exports/<sketch>/<sketch>-<seed>.svg` (and `.png`), plus `traits.json` with each seed's traits and a tally. It writes through a dev-only Vite plugin (`tools/export-plugin.ts`, `POST /__export`). `exports/` is gitignored.
+- Sketches (`playground/Sketch.ts`):
+  - **`draw(doc, random, debug, { params, traits })`.** Guides recorded through `debug` show on the preview only, never in the SVG.
+  - **Params:** declare them with `defineSketch({ params: { halo: { value: 0.6, min: 0, max: 2 } }, ... })` so they're typed. A number, boolean, `options` list or `color: true` makes the matching control.
+  - **Traits:** record a seed's character with `traits.pick(name, random, { a: 1, b: 2 })` (one draw, like `random.weighted`) or `traits.set(name, value)`. They go in the HUD, the panel, the SVG `<desc>` (with any changed params) and the batch tally.
+  - **Shared code:** goes in `playground/sketches/lib/`. Only files directly in `sketches/` are sketches.
 - `npm test`: Vitest. Tests live next to the code as `src/**/*.test.ts`.
-- `npm run typecheck`: checks the app (`tsconfig.json`) and `vite.config.ts` (`tsconfig.node.json`).
+- `npm run typecheck`: checks the app (`tsconfig.json`), and `vite.config.ts` with `tools/` (`tsconfig.node.json`).
 - `npm run build`: `vite build` (lib mode, emits `dist/index.es.js`), then `tsc -p tsconfig.build.json` (emits `.d.ts` files only).
 
 ## Conventions
