@@ -72,6 +72,37 @@ export {
   type SweepProfile,
 } from "./sweep/Sweep.js";
 export { sweepHatch, type SweepHatchOptions } from "./sweep/sweepHatch.js";
+export { Mesh, type MeshEdge, type MeshOptions } from "./three/Mesh.js";
+export {
+  box,
+  breakCorners,
+  extrude,
+  lathe,
+  type BreakCornersOptions,
+  type LatheOptions,
+} from "./three/builders.js";
+export {
+  renderMesh,
+  type MeshDrawing,
+  type MeshFace,
+  type RenderMeshOptions,
+} from "./three/renderMesh.js";
+export {
+  oblique,
+  orthographic,
+  type ObliqueOptions,
+  type OrthographicOptions,
+  type Projection,
+} from "./three/projection.js";
+export {
+  apply3,
+  compose3,
+  rotateX,
+  rotateY,
+  rotateZ,
+  scale3,
+  translate3,
+} from "./three/transforms3.js";
 export {
   waveShade,
   waveToneRange,

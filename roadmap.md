@@ -184,18 +184,33 @@ GM's best trick: shapes built in their own parameter space, so their hatching fo
 
 ---
 
-## Phase 7: Small 3D objects ⬜
+## Phase 7: Small 3D objects ✅
 
-3D only inside each object, placed on a 2D page, as GM does. (GM: `M_putObject3D` and `Mesh` in `Math.js`.)
+3D only inside each object, placed on a 2D page, as GM does. (GM: `M_putObject3D` and `Mesh` in `Math.js`.) World axes are x right, y up and z towards the viewer, in mm. The result of drawing a mesh is ordinary 2D paths for `doc.draw`.
 
-- [ ] `Mesh`: faces and edges, with shared edges plotted once
-- [ ] Builders: box, chamfered or "broken corner" block, extruded and lathed shapes
-- [ ] Parallel oblique projection, using wtc-math `Vec3` / `Mat4`
-- [ ] Back-face culling, then a front-to-back face sort (so non-convex meshes work too)
-- [ ] Per-face shading: tone from `N·L` sets the hatch spacing, and each face gets a stable hatch angle
-- [ ] Crease detection: edges between nearly flat neighbours go to a lighter pen
-- [ ] Stamp the mask with outline gaps, so later 2D drawing tucks behind objects
-- [ ] Clip at a ground plane (objects sunk into terrain)
+- [x] `Mesh` (`src/three/Mesh.ts`): shared vertices and faces as index rings, counter-clockwise from outside. It gives Newell normals, each edge once with its faces (`edges`), open edges, bounds and volume. `transform(Mat4)` keeps faces outward through mirrors.
+- [x] Builders (`src/three/builders.ts`):
+  - `box` stands on y = 0, centred on x and z.
+  - `extrude` takes a 2D outline either way round.
+  - `lathe` spins a `(radius, y)` profile into rings; a radius of 0 at an end makes a point. `jitter` moves ring centres, as GM's trunks, and side faces stay flat.
+  - `breakCorners` is GM's broken corners: each pass cuts every edge near both ends, a random share in from each, and replaces each corner with a facet. A box gets 14 faces after one pass and 38 after two, all flat. A corner of more than 3 faces is fanned into triangles.
+- [x] Projections (`src/three/projection.ts`): `oblique({ factor, angle })`, GM's, and `orthographic({ elevation, azimuth })`, both linear, with `toEye` and `depth`. 3D transforms are in `transforms3.ts` (`rotateX/Y/Z`, `translate3`, `scale3`, `compose3`), with wtc-math's Mat4 behaviour pinned by tests. Rotations follow the right-hand rule, the opposite sense to the 2D helpers.
+- [x] Hidden lines (`renderMesh`): back faces are culled, then hidden parts are removed **exactly, in vectors**, instead of the planned front-to-back face sort.
+  - Every path is cut where it crosses a visible face's outline (`clipWhere`, split out of `clipToEdges`), and a piece is kept unless a face nearer than it (by that face's plane) covers its middle.
+  - It needs no sort and is exact for any overlaps, as long as faces don't pass through each other. Tested against a brute-force ray cast on concave shapes (an L and an urn) in five views.
+- [x] Per-face shading: tone from ((1 + N·L) / 2)², GM's lighting, spread over a `tone` range and drawn with `shade`. Lines are **painted on** each face, every pass of them:
+  - the first runs down the slope on walls and into the depth on near-flat tops;
+  - the second runs along the face's other axis (along a wall, round a column);
+  - the third and fourth run along its diagonals.
+
+  Planes read as planes and parallel faces match. Spacing is set on the page, so the page lattice keeps neighbours aligned. `hatch` overrides the direction per face.
+- [x] Creases: an edge between two visible faces whose normals differ by less than `crease` (default 15°) goes to `creases`, for a lighter pen. The outline and sharp edges go to `edges`, each drawn once.
+- [x] Mask: `silhouette` is the visible faces' rings, so `doc.draw(…, { silhouette, gap })` stamps the object with a halo that later drawing stops short of.
+- [x] Ground: `mesh.clipBelow(y)` cuts faces at the plane. The hole isn't capped, and edges in the plane are open, so no line is drawn where the object meets the ground.
+- [x] Sketch: `stones.ts`, A5 landscape. Broken-corner blocks, a lathed urn and a column stand on the meadow's grass rows (shared through `playground/sketches/lib/meadow-kit.ts`; the meadow's output is unchanged). Each object is sunk on a row, so that row's grass hides the cut, and goes on its own `stone` pen with its creases. About a third of the seeds use an orthographic view. Debug shows face normals, back faces and labels.
+  - **Measured:** a test sheet of 12 objects renders in about 47 ms. The sketch builds in 180–290 ms, and optimising cuts pen-up travel from 50–67 m to about 6 m.
+
+**Done when:** objects project in either view, with each visible edge drawn once and exactly; faces are shaded from the light with lines painted on the face; creases are on their own pen; objects sink into the ground and sit in the meadow, with later drawing kept clear by the halo. Met: 294 tests pass, including `Mesh.test.ts`, `projection.test.ts`, `transforms3.test.ts` and `renderMesh.test.ts`.
 
 ---
 

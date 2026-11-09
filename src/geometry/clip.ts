@@ -186,16 +186,34 @@ export function clipToEdges(
   edges: Float64Array,
   options: ShapeClipOptions = {},
 ): Polyline[] {
+  const inside =
+    options.rule === "evenodd"
+      ? (x: number, y: number) => windingAt(edges, x, y) % 2 !== 0
+      : (x: number, y: number) => windingAt(edges, x, y) !== 0;
+  return clipWhere(path, edges, inside, options);
+}
+
+/**
+ * Cuts `path` exactly where it crosses `edges` (from `shapeEdges`) and keeps
+ * the pieces whose midpoint passes `keep`. For any test that can only
+ * change across those edges, such as being inside them (`clipToEdges`) or
+ * being in front of the faces they outline (hidden lines in `renderMesh`).
+ *
+ * Vertices are kept, cuts between two kept pieces add no points, and for a
+ * closed path the run that wraps through its start comes back as one piece.
+ * A path that is kept everywhere comes back as itself.
+ */
+export function clipWhere(
+  path: Polyline,
+  edges: Float64Array,
+  keep: (x: number, y: number) => boolean,
+  options: { minLength?: number } = {},
+): Polyline[] {
   const minLength = options.minLength ?? 0.2;
   const pts = path.points;
   const n = pts.length;
   if (n < 2) return [];
   const segments = path.closed ? n : n - 1;
-
-  const inside =
-    options.rule === "evenodd"
-      ? (x: number, y: number) => windingAt(edges, x, y) % 2 !== 0
-      : (x: number, y: number) => windingAt(edges, x, y) !== 0;
 
   const runs = new Runs();
   let first = true;
@@ -217,24 +235,29 @@ export function clipToEdges(
     segmentCrossings(edges, ax, ay, b.x, b.y, cuts);
     cuts.sort((p, q) => p - q);
 
+    // Where the kept stretch in this segment ends, once it does.
+    let end = -1;
     for (let i = 0; i + 1 < cuts.length; i++) {
       const t0 = cuts[i];
       const t1 = cuts[i + 1];
       if (t1 - t0 <= 1e-12) continue;
       const tm = (t0 + t1) / 2;
-      const isIn = inside(ax + dx * tm, ay + dy * tm);
+      const isIn = keep(ax + dx * tm, ay + dy * tm);
       if (first) {
         startVisible = isIn;
         first = false;
       }
       if (isIn) {
         if (!runs.current) runs.start(ax + dx * t0, ay + dy * t0);
-        runs.add(ax + dx * t1, ay + dy * t1);
+        end = t1;
       } else {
+        if (end >= 0) runs.add(ax + dx * end, ay + dy * end);
+        end = -1;
         everOutside = true;
         runs.close();
       }
     }
+    if (end >= 0) runs.add(ax + dx * end, ay + dy * end);
   }
 
   if (first) return [];
