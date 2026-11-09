@@ -56,6 +56,23 @@ export {
 export { spiral, type SpiralOptions } from "./fill/spiral.js";
 export { flowHatch, type FlowHatchOptions } from "./fill/flow.js";
 export {
+  arc,
+  catmullRom,
+  cubic,
+  quadratic,
+  type CatmullRomOptions,
+  type CurveOptions,
+} from "./geometry/curves.js";
+export * as profiles from "./sweep/profiles.js";
+export type { OutlineProfile, Profile } from "./sweep/profiles.js";
+export {
+  Sweep,
+  type SweepFrame,
+  type SweepOptions,
+  type SweepProfile,
+} from "./sweep/Sweep.js";
+export { sweepHatch, type SweepHatchOptions } from "./sweep/sweepHatch.js";
+export {
   waveShade,
   waveToneRange,
   type WaveShadeOptions,

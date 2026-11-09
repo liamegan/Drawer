@@ -174,13 +174,24 @@ export function clipToShape(
   shapes: Polyline | readonly Polyline[],
   options: ShapeClipOptions = {},
 ): Polyline[] {
+  return clipToEdges(path, shapeEdges(shapes), options);
+}
+
+/**
+ * `clipToShape` against edges from `shapeEdges`, for clipping many paths
+ * against the same shapes without rebuilding the edge list each time.
+ */
+export function clipToEdges(
+  path: Polyline,
+  edges: Float64Array,
+  options: ShapeClipOptions = {},
+): Polyline[] {
   const minLength = options.minLength ?? 0.2;
   const pts = path.points;
   const n = pts.length;
   if (n < 2) return [];
   const segments = path.closed ? n : n - 1;
 
-  const edges = shapeEdges(shapes);
   const inside =
     options.rule === "evenodd"
       ? (x: number, y: number) => windingAt(edges, x, y) % 2 !== 0

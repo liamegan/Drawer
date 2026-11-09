@@ -156,15 +156,31 @@ The raw material for organic sketches. (GM's `perlin.js` was empty in the copy w
 
 ---
 
-## Phase 6: Curves and swept shapes ⬜
+## Phase 6: Curves and swept shapes ✅
 
 GM's best trick: shapes built in their own parameter space, so their hatching follows their form. (GM: `M_drawLeaf` and `M_hatchFuncLeaf`.)
 
-- [ ] Curve sampling to polylines: quadratic and cubic Bézier, Catmull-Rom, arcs (adaptive, tolerance-based)
-- [ ] `Sweep`: spine curve + width profile + optional bend, giving its outline
-- [ ] Parameter-space hatching: lines across the sweep (at constant position along the spine) and along it (at constant offset from the spine), drawn through the same transform as the outline. Hatch lines run slightly long and get clipped to the outline.
-- [ ] Profile library: leaf, blade, petal and taper shapes, plus helpers for an inverse profile
-- [ ] Sketch: a field of leaves or grass, occluded front to back
+- [x] Curve sampling to polylines (`src/geometry/curves.ts`): `quadratic`, `cubic`, `catmullRom` (centripetal by default, so no cusps or loops; open or closed) and `arc`, all within `tolerance` (default 0.02 mm, as `circle`). Béziers are split adaptively, so a straight run costs two points.
+- [x] `Sweep` (`src/sweep/Sweep.ts`): a spine (any open `Polyline`) plus a width profile and an optional `bend`, giving a closed outline (clockwise) and an `openOutline` without the base, for shapes that grow out of something.
+  - **Coordinates:** t runs along the spine by arc length, base to tip; v across it, −1 on the left edge to 1 on the right. `point(t, v)`, `pointAtOffset(t, mm)`, `frame(t)`, `halfWidth`, `widest` and `midrib(from, to)`. Past the ends, the spine carries on straight.
+  - **Frame:** normals are blended between the spine's vertices, so outlines don't kink at corners.
+  - **Bend:** turns the spine by `bend` radians spread evenly along it. Each piece becomes an exact arc, and the end tangent turns by exactly `bend`.
+  - **Fold limit:** where the half-width is more than the radius of a bend, the inner edge folds over. This is documented, not prevented.
+  - **Accuracy:** the outline is within 0.02 mm of the true edge on a curved spine.
+- [x] Parameter-space hatching (`sweepHatch`): lines are laid out and clipped in the unrolled sweep (`Sweep.unrolled`), then carried onto the page. They end at the true edge, and a sweep that curls past itself (tested at 1.6 turns) can't pick up stray pieces. That replaced the plan's "run long and clip to the outline on the page".
+  - **Across:** lines `spacing` apart along the spine, with `bow` (vein chevrons that fade at the ends), `slant`, `offset` and `span` (part of the width, such as `[0, 1]` for a shaded half).
+  - **Along:** lines split the widest point evenly, with the outline counted as the outermost line.
+    - **Thinning (`thin`):** a line ends where it would come within ½ spacing of the line it defers to (2^j steps away for line m · 2^j) or of the edge. Line ends are staggered by van der Corput within each level, so tone doesn't step. Tested: gaps stay at least ½ spacing right to the tip, and no two lines end together. `thin: 0.72` gives an even tone; `false` runs every line to the tip.
+  - **Shared:** `tone` and `pen` (coverage within 10%), and `inset`.
+  - **Speed:** 500 hatched grass blades take about 150 ms.
+- [x] Profile library (`profiles.*`): `leaf({ widest })`, `blade({ taper })`, `petal({ widest })` and `taper(from, to)`; `serrate` and `lobed` edges, which never widen the profile. `parametric(t => [x, y])` takes an outline that can turn back, like GM's clover heart, and works out the width per height itself, so there's no inverse profile to write.
+- [x] Sketch: `meadow.ts`, A5 landscape.
+  - **Grass:** eight rows from the horizon to the front, of `blade` sweeps leaning and curling with noise, hatched `along`. Nearer rows are taller, wider and darker.
+  - **Plants:** three to five, each a `catmullRom` stem with drooping leaves (`leaf`, `serrate` or clover hearts), hatched `across` in bowed veins, with midribs and a denser half on the side away from the light.
+  - **Drawing:** everything is occluded front to back. Debug shows spines and leaf frames, and labels each plant's leaf kind.
+  - **Measured:** it builds in 200–260 ms, and optimising cuts pen-up travel from about 72 m to 6 m.
+
+**Done when:** curves sample within tolerance, sweeps give clean outlines with their own parameter space, hatching follows the form across and along it with clean tips, and the meadow shows layered grass and leaves. Met: 263 tests pass, including `curves.test.ts`, `profiles.test.ts`, `Sweep.test.ts` and `sweepHatch.test.ts`.
 
 ---
 
