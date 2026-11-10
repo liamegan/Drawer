@@ -1,11 +1,12 @@
-import type { Document } from "../document/Document.js";
+import type { Sheet } from "../sheet/Sheet.js";
 import type { Polyline } from "../geometry/Polyline.js";
 
+/** Options for {@link toSVG}. */
 export interface SVGOptions {
   /** Decimal places kept on coordinates. Default 3 (1 µm). */
   precision?: number;
   /**
-   * Adds a background rect: `true` uses the document's paper colour, or pass a
+   * Adds a background rect: `true` uses the sheet's paper colour, or pass a
    * colour. Off by default. It is for on-screen viewing only, because plotter
    * software would draw it.
    */
@@ -46,7 +47,7 @@ export function pathData(polyline: Polyline, precision = 3): string {
 }
 
 /**
- * Serialises a Document as a plotter-ready SVG string.
+ * Serialises a Sheet as a plotter-ready SVG string.
  *
  * - The size is given in mm, and the viewBox is in mm, so 1 user unit = 1 mm.
  * - Each Layer becomes an Inkscape layer (`inkscape:groupmode="layer"`) labelled
@@ -54,11 +55,11 @@ export function pathData(polyline: Polyline, precision = 3): string {
  *   pen layers.
  * - Strokes only (`fill="none"`), with the colour and width of the layer's pen.
  */
-export function toSVG(doc: Document, options: SVGOptions = {}): string {
+export function toSVG(sheet: Sheet, options: SVGOptions = {}): string {
   const precision = options.precision ?? 3;
   const f = (n: number) => formatNumber(n, precision);
-  const w = f(doc.width);
-  const h = f(doc.height);
+  const w = f(sheet.width);
+  const h = f(sheet.height);
 
   const out: string[] = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -69,11 +70,11 @@ export function toSVG(doc: Document, options: SVGOptions = {}): string {
   if (options.description) out.push(`  <desc>${escapeXML(options.description)}</desc>`);
 
   if (options.background) {
-    const fill = options.background === true ? doc.paperColor : options.background;
+    const fill = options.background === true ? sheet.paperColor : options.background;
     out.push(`  <rect x="0" y="0" width="${w}" height="${h}" fill="${escapeXML(fill)}" stroke="none"/>`);
   }
 
-  doc.layers.forEach((layer, i) => {
+  sheet.layers.forEach((layer, i) => {
     const n = i + 1;
     out.push(
       `  <g id="layer${n}" inkscape:groupmode="layer" inkscape:label="${n}-${escapeXML(layer.name)}"` +

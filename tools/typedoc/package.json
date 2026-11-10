@@ -1,0 +1,9 @@
+{
+  "name": "wtc-drawer-docs",
+  "private": true,
+  "description": "TypeDoc for wtc-drawer. A separate package because TypeDoc needs TypeScript 6 or older; the repo builds with TypeScript 7.",
+  "devDependencies": {
+    "typedoc": "^0.28.20",
+    "typescript": "~6.0.3"
+  }
+}

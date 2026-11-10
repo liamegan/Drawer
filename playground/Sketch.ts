@@ -1,5 +1,5 @@
 import type { Vec2 } from "wtc-math";
-import type { Document, DocumentOptions, Polyline, Random } from "wtc-drawer";
+import type { Sheet, SheetOptions, Polyline, Random } from "wtc-drawer";
 import type { Traits } from "./traits.js";
 
 /**
@@ -64,7 +64,7 @@ export interface SketchContext<S extends ParamSpecs = ParamSpecs> {
 }
 
 /**
- * A playground artwork. Its DocumentOptions (paper, orientation, margin,
+ * A playground artwork. Its SheetOptions (paper, orientation, margin,
  * paperColor) set up the sheet, then `draw` fills it. All randomness should
  * come from `random` so the seed reproduces the piece exactly.
  *
@@ -74,11 +74,11 @@ export interface SketchContext<S extends ParamSpecs = ParamSpecs> {
  * the same params: the SVG's description records any that aren't defaults.
  */
 export interface Sketch<S extends ParamSpecs = ParamSpecs>
-  extends DocumentOptions {
+  extends SheetOptions {
   title: string;
   params?: S;
   draw(
-    doc: Document,
+    doc: Sheet,
     random: Random,
     debug: Debug,
     context: SketchContext<S>,

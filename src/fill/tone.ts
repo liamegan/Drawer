@@ -13,6 +13,7 @@ import {
 /** Tone at a point on the page: 0 is bare paper, 1 is solid ink. */
 export type ToneField = (x: number, y: number) => number;
 
+/** Options for {@link toneSpacing}. */
 export interface ToneSpacingOptions {
   /** Pen width in mm. */
   pen: number;
@@ -78,6 +79,7 @@ export function passCoverage(
   return 0;
 }
 
+/** Options for {@link shade}. */
 export interface ShadeOptions extends Omit<HatchOptions, "spacing" | "angle"> {
   /** A tone from 0 (paper) to 1 (solid), or a function giving the tone at each point. */
   tone: number | ToneField;

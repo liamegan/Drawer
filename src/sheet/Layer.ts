@@ -6,6 +6,7 @@ export interface Pen {
   width: number;
 }
 
+/** The pen a layer gets when none is given: black, 0.3 mm. */
 export const DEFAULT_PEN: Readonly<Pen> = { color: "#000000", width: 0.3 };
 
 /**
@@ -22,11 +23,13 @@ export class Layer {
     this.pen = { ...DEFAULT_PEN, ...pen };
   }
 
+  /** Adds paths as they are, with no occlusion. Returns the layer. */
   add(...paths: Polyline[]): this {
     this.paths.push(...paths);
     return this;
   }
 
+  /** Removes every path. Returns the layer. */
   clear(): this {
     this.paths.length = 0;
     return this;

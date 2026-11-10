@@ -6,6 +6,7 @@ import type { FillRule } from "../geometry/scanline.js";
 import { simplify } from "../geometry/simplify.js";
 import type { ScalarField, VectorField } from "./fields.js";
 
+/** Options for {@link streamlines}. */
 export interface StreamlineOptions {
   /** The closed shapes the lines fill. */
   region: Polyline | readonly Polyline[];
@@ -34,7 +35,7 @@ export interface StreamlineOptions {
   /** Where to start the first lines. Default the middle of the region. */
   seeds?: readonly Vec2[];
   /**
-   * Ends lines where this returns true, such as `doc.mask.hiddenTest()`, so
+   * Ends lines where this returns true, such as `sheet.mask.hiddenTest()`, so
    * the flow stops at ink already drawn instead of running underneath it.
    */
   stopAt?: HiddenTest;

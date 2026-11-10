@@ -1,4 +1,4 @@
-import { renderToCanvas, type Document, type Mask } from "wtc-drawer";
+import { renderToCanvas, type Sheet, type Mask } from "wtc-drawer";
 import { exportRange, renderPNG } from "./export.js";
 import { Panel, type ViewFlags } from "./panel.js";
 import { readParams, writeParams, type Values } from "./params.js";
@@ -32,7 +32,7 @@ let exporting = false;
 let stopExport = false;
 
 /** The document being previewed and saved. */
-const shown = (): Document | null =>
+const shown = (): Sheet | null =>
   run ? (showRaw ? run.raw : run.plotted) : null;
 
 function readSeed(): string {
@@ -84,7 +84,7 @@ function render(): void {
  * Draws the pen-up moves: from home (top-left) to each path's start, from
  * its end to the next, and back home after each layer.
  */
-function drawTravel(doc: Document, scale: number): void {
+function drawTravel(doc: Sheet, scale: number): void {
   ctx.save();
   ctx.scale(scale, scale);
   ctx.lineWidth = Math.max(0.15, 1 / scale);
@@ -188,7 +188,7 @@ const fileBase = () => `${sketchName}-${run?.seed}${showRaw ? "-raw" : ""}`;
 
 function downloadSVG(): void {
   if (!run || !sketch) return;
-  const svg = runSVG(sketch, run, showRaw);
+  const svg = runSVG(sketch, run, { raw: showRaw });
   download(`${fileBase()}.svg`, new Blob([svg], { type: "image/svg+xml" }));
 }
 

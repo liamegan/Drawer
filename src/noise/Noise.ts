@@ -1,5 +1,6 @@
 import type { Random } from "../random/Random.js";
 
+/** Octave settings for {@link Noise.fbm2} and {@link Noise.fbm3}. */
 export interface FbmOptions {
   /** Layers of noise summed. Default 4. */
   octaves?: number;

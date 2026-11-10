@@ -1,4 +1,4 @@
-import { renderToCanvas, type Document } from "wtc-drawer";
+import { renderToCanvas, type Sheet } from "wtc-drawer";
 import { changed, type Values } from "./params.js";
 import { runSketch, runSVG, type Run } from "./run.js";
 import type { Sketch } from "./Sketch.js";
@@ -9,7 +9,7 @@ import { TraitTally, type TraitValue } from "./traits.js";
  * colour, as a PNG. Very large sheets can exceed what the browser allows for
  * a canvas; then this rejects.
  */
-export function renderPNG(doc: Document, dpi: number): Promise<Blob> {
+export function renderPNG(doc: Sheet, dpi: number): Promise<Blob> {
   const scale = dpi / 25.4;
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(doc.width * scale);
@@ -91,7 +91,7 @@ export async function exportRange(o: BatchOptions): Promise<BatchResult> {
     }
     const run = runSketch(o.sketch, String(seed), o.params);
     const base = `${o.name}/${o.name}-${seed}${o.raw ? "-raw" : ""}`;
-    await save(`${base}.svg`, runSVG(o.sketch, run, o.raw));
+    await save(`${base}.svg`, runSVG(o.sketch, run, { raw: o.raw }));
     if (o.png) {
       const doc = o.raw ? run.raw : run.plotted;
       await save(`${base}.png`, await renderPNG(doc, o.dpi));

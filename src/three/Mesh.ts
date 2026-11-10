@@ -11,6 +11,7 @@ export interface MeshEdge {
   readonly open: boolean;
 }
 
+/** Options for a new {@link Mesh}. */
 export interface MeshOptions {
   /**
    * Edges to treat as open even if two faces share them, as vertex index

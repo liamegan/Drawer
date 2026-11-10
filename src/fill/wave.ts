@@ -3,6 +3,7 @@ import { simplify } from "../geometry/simplify.js";
 import { hatchWith, type HatchOptions, type LineStyle } from "./hatch.js";
 import type { ToneField } from "./tone.js";
 
+/** The wave model shared by {@link waveShade} and {@link waveToneRange}. */
 export interface WaveToneOptions {
   /** Distance between lines, in mm. */
   spacing: number;
@@ -24,6 +25,7 @@ export interface WaveToneOptions {
   minWavelength?: number;
 }
 
+/** Options for {@link waveShade}. */
 export interface WaveShadeOptions
   extends Omit<HatchOptions, "spacing" | "style">, WaveToneOptions {
   /** A tone from 0 (paper) to 1 (solid), or a function giving the tone at each point. */

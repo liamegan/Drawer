@@ -1,4 +1,11 @@
 /**
+ * Width profiles for sweeps ({@link Sweep}): `leaf`, `blade`, `petal`,
+ * `taper`, `serrate` and `lobed`, plus `parametric` outlines drawn in unit
+ * leaf space.
+ *
+ * @module
+ */
+/**
  * Width profiles for sweeps. A profile gives the half-width at each point
  * along the spine as a fraction of the widest, from t = 0 at the base to
  * t = 1 at the tip, and stays within [0, 1].
@@ -23,6 +30,7 @@ export interface OutlineProfile {
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
+/** Options for {@link leaf}. */
 export interface LeafOptions {
   /** Where along the leaf it's widest, between 0 and 1. Default 0.4. */
   widest?: number;
@@ -42,6 +50,7 @@ export function leaf(options: LeafOptions = {}): Profile {
   return (t) => clamp01(Math.sin(Math.PI * clamp01(t) ** p));
 }
 
+/** Options for {@link blade}. */
 export interface BladeOptions {
   /**
    * How long the sides stay nearly parallel before the point: 1 gives a
@@ -58,6 +67,7 @@ export function blade(options: BladeOptions = {}): Profile {
   return (t) => clamp01(1 - clamp01(t) ** taper);
 }
 
+/** Options for {@link petal}. */
 export interface PetalOptions {
   /** Where along the petal it's widest, between 0 and 1. Default 0.65. */
   widest?: number;
@@ -132,6 +142,7 @@ export function lobed(profile: Profile, lobes: number, depth = 0.5): Profile {
   };
 }
 
+/** Options for {@link parametric}. */
 export interface ParametricOptions {
   /** Points sampled along the curve. Default 256. */
   samples?: number;

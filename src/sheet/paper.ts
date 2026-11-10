@@ -5,8 +5,13 @@ export interface PaperSize {
   readonly height: number;
 }
 
+/** Which way a sheet is turned. Square sheets ignore it. */
 export type Orientation = "portrait" | "landscape";
 
+/**
+ * ISO A sizes, and US Letter, in portrait. Use {@link orient} or a sheet's
+ * `orientation` to turn them.
+ */
 export const paper = {
   A6: { name: "A6", width: 105, height: 148 },
   A5: { name: "A5", width: 148, height: 210 },

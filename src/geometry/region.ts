@@ -119,6 +119,7 @@ export class Region {
     return this.rule === "evenodd" ? (w & 1) !== 0 : w !== 0;
   }
 
+  /** Whether (x, y) is inside under the region's fill rule. */
   contains(x: number, y: number): boolean {
     return this.insideBy(this.winding(x, y));
   }

@@ -7,7 +7,7 @@ import {
   profiles,
   Sweep,
   sweepHatch,
-  type Document,
+  type Sheet,
   type Profile,
   type Random,
   type SweepProfile,
@@ -103,7 +103,7 @@ const sketch: Sketch = {
  * its random numbers are all drawn now, so the seed stays stable.
  */
 function plant(
-  doc: Document,
+  doc: Sheet,
   noise: Noise,
   rng: Random,
   root: Vec2,

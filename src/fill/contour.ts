@@ -12,6 +12,10 @@ import { SDF, sdf } from "../sdf/SDF.js";
 /** What contour fills accept: closed paths, or a distance field. */
 export type ContourShape = Polyline | readonly Polyline[] | SDF;
 
+/**
+ * How a shape becomes the distance field its contours follow, for
+ * {@link contourHatch} and {@link contourSpiral}.
+ */
 export interface ContourFieldOptions {
   /** How the shapes' rings combine, for paths. Default "nonzero", as in SVG. */
   rule?: FillRule;
@@ -25,6 +29,7 @@ export interface ContourFieldOptions {
   exact?: boolean;
 }
 
+/** Options for {@link contourHatch}. */
 export interface ContourHatchOptions
   extends ContourFieldOptions,
     PathFinishOptions {

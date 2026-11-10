@@ -12,6 +12,7 @@ import {
   type ContourShape,
 } from "./contour.js";
 
+/** Options for {@link contourSpiral}. */
 export interface ContourSpiralOptions
   extends ContourFieldOptions,
     PathFinishOptions {

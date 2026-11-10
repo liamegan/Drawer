@@ -20,6 +20,7 @@ export function angleField(angle: ScalarField): VectorField {
   };
 }
 
+/** Options for {@link curlField}. */
 export interface CurlOptions {
   /** Step for the central differences, in mm. Default 0.01. */
   eps?: number;

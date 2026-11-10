@@ -16,11 +16,13 @@ import {
   type GridWindow,
 } from "./grid.js";
 
+/** Options for {@link sdf}. */
 export interface SDFOptions {
   /** How the shapes' rings combine. Default "nonzero", as in SVG. */
   rule?: FillRule;
 }
 
+/** Options for {@link SDF.sample}. */
 export interface SampleOptions {
   /** Grid nodes per mm. Default 5 (0.2 mm cells). */
   resolution?: number;

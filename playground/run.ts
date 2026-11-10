@@ -1,5 +1,5 @@
 import {
-  Document,
+  Sheet,
   optimize,
   plotStats,
   Random,
@@ -16,9 +16,9 @@ export interface Run {
   seed: string;
   params: Values;
   /** The drawing as the sketch built it. */
-  raw: Document;
+  raw: Sheet;
   /** The same drawing optimised for plotting. */
-  plotted: Document;
+  plotted: Sheet;
   rawStats: PlotStats;
   plottedStats: PlotStats;
   guides: Guides;
@@ -32,7 +32,7 @@ export interface Run {
  * and the batch export both come through here, so they can't disagree.
  */
 export function runSketch(sketch: Sketch, seed: string, params: Values): Run {
-  const raw = new Document(sketch);
+  const raw = new Sheet(sketch);
   const guides = new Guides();
   const traits = new Traits();
   const t0 = performance.now();
@@ -60,8 +60,13 @@ export function runSketch(sketch: Sketch, seed: string, params: Values): Run {
 /**
  * The SVG for a run: optimised unless `raw`, titled with the sketch and
  * seed, with the traits and any changed params in its description.
+ * `background` fills the paper colour in, for viewing rather than plotting.
  */
-export function runSVG(sketch: Sketch, run: Run, raw = false): string {
+export function runSVG(
+  sketch: Sketch,
+  run: Run,
+  { raw = false, background = false } = {},
+): string {
   const lines = [`Seed: ${run.seed}`];
   for (const [name, value] of run.traits.entries()) {
     lines.push(`${name}: ${value}`);
@@ -75,5 +80,6 @@ export function runSVG(sketch: Sketch, run: Run, raw = false): string {
   return toSVG(raw ? run.raw : run.plotted, {
     title: `${sketch.title} — seed ${run.seed}`,
     description: lines.join("\n"),
+    background,
   });
 }

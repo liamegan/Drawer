@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run
+      # Typechecks the library, the playground and tools/ first.
+      - run: npm run build
+      - name: Check what would be published
+        run: npm pack --dry-run
+
+  docs:
+    name: API docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Undocumented exports and broken {@link}s fail the build.
+      - run: npm run docs -- --treatWarningsAsErrors

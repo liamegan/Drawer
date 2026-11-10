@@ -13,6 +13,7 @@ export class Bounds {
     this.max = new Vec2(Math.max(min.x, max.x), Math.max(min.y, max.y));
   }
 
+  /** Bounds from a top-left corner and a size. */
   static fromRect(x: number, y: number, width: number, height: number): Bounds {
     return new Bounds(new Vec2(x, y), new Vec2(x + width, y + height));
   }
@@ -69,6 +70,7 @@ export class Bounds {
     return p.x >= this.min.x && p.x <= this.max.x && p.y >= this.min.y && p.y <= this.max.y;
   }
 
+  /** The smallest Bounds holding both. */
   union(other: Bounds): Bounds {
     return new Bounds(
       new Vec2(Math.min(this.min.x, other.min.x), Math.min(this.min.y, other.min.y)),

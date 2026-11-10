@@ -2,6 +2,7 @@ import { Vec2 } from "wtc-math";
 import { Polyline } from "../geometry/Polyline.js";
 import { PointGrid } from "./grid.js";
 
+/** Options for {@link sortPaths}. */
 export interface SortOptions {
   /** Where the pen starts, in mm. Default (0, 0), the top-left corner. */
   start?: Vec2;

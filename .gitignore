@@ -6,3 +6,7 @@ exports/
 .DS_Store
 # third-party reference code (Zancan, Garden Monoliths) — not ours to publish
 examples/
+
+# generated API docs (npm run docs) and its TypeDoc install
+docs/api/
+tools/typedoc/node_modules/

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Document } from "../document/Document.js";
+import { Sheet } from "../sheet/Sheet.js";
 import { Polyline } from "../geometry/Polyline.js";
 import { rect } from "../geometry/shapes.js";
 import { open, v } from "./ink.test-util.js";
@@ -7,10 +7,10 @@ import { pathStats, plotStats } from "./stats.js";
 
 describe("plotStats", () => {
   it("adds up ink, travel, lifts and time per layer, each from home and back", () => {
-    const doc = new Document();
-    doc.add("a", open([10, 0], [20, 0]), open([20, 10], [20, 30]));
-    doc.add("b", rect(0, 0, 10, 10), new Polyline([v(5, 5)]));
-    const stats = plotStats(doc, {
+    const sheet = new Sheet();
+    sheet.add("a", open([10, 0], [20, 0]), open([20, 10], [20, 30]));
+    sheet.add("b", rect(0, 0, 10, 10), new Polyline([v(5, 5)]));
+    const stats = plotStats(sheet, {
       drawSpeed: 10,
       travelSpeed: 20,
       liftTime: 1,

@@ -24,22 +24,28 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
 - `npm test`: Vitest. Tests live next to the code as `src/**/*.test.ts`.
 - `npm run typecheck`: checks the app (`tsconfig.json`), and `vite.config.ts` with `tools/` (`tsconfig.node.json`).
 - `npm run build`: `vite build` (lib mode, emits `dist/index.es.js`), then `tsc -p tsconfig.build.json` (emits `.d.ts` files only).
+- `npm run docs`: TypeDoc into `docs/api/` (gitignored), with the README as its front page.
+  - **TypeScript version:** TypeDoc needs TypeScript ≤ 6 and the repo builds with 7, so it lives in its own package, `tools/typedoc/` (config in `typedoc.json` there). The script installs it first.
+  - **Docs required:** every top-level export needs a TSDoc comment, and `{@link}`s must point at exported names. CI runs it with `--treatWarningsAsErrors`.
+- `npm run gallery`: re-renders the README gallery into `docs/gallery/` (`tools/gallery.ts`; the seeds are listed there). `node tools/gallery.ts --out <dir> stones:1 meadow:2` renders any sketch:seed list elsewhere.
+- CI (`.github/workflows/ci.yml`) runs tests, the build and the docs on every push. `pages.yml` deploys the docs to GitHub Pages from `main`.
+- README code blocks are meant to run as written. Keep them in step with the API.
 
 ## Conventions
 - Strict TS, `verbatimModuleSyntax` (use `import type` for types), and `erasableSyntaxOnly` (no enums or parameter properties).
 - Relative imports in `src/` use **`.js` extensions** (`./Polyline.js`) so the emitted `.d.ts` files resolve for consumers.
 - Units are **millimetres**. The origin is at the top-left and y points down. Pixels exist only inside `renderToCanvas`.
-- Geometry is immutable: `Polyline` copies its input and its methods return new instances. `Document` and `Layer` are mutable containers.
-- `wtc-math` provides `Vec2` and `Mat3`. It is external in the build; don't re-export it.
+- Geometry is immutable: `Polyline` copies its input and its methods return new instances. `Sheet` and `Layer` are mutable containers.
+- `wtc-math` provides `Vec2`, `Vec3`, `Mat3` and `Mat4`. It is a peer dependency, external in the build; don't re-export it.
 - All randomness in a sketch goes through `Random`. Use `random.fork(label)` for independent streams.
 - Keep `src/` free of DOM globals. Renderers take a context; the playground owns `document` and `window`.
-- Occlusion: draw **front to back**. `doc.draw()` clips paths against `doc.mask` and then stamps their silhouette; `doc.add()` does neither. Mask pixel (i, j) is centred at `((i+0.5)/res, (j+0.5)/res)` mm, and fills default to `nonzero`, as in SVG. Hot loops (the rasteriser, `clipPolyline`) use raw numbers, not `Vec2`.
+- Occlusion: draw **front to back**. `sheet.draw()` clips paths against `sheet.mask` and then stamps their silhouette; `sheet.add()` does neither. Mask pixel (i, j) is centred at `((i+0.5)/res, (j+0.5)/res)` mm, and fills default to `nonzero`, as in SVG. Hot loops (the rasteriser, `clipPolyline`) use raw numbers, not `Vec2`.
 - Hatching:
   - **Angles:** positive turns clockwise on screen, and 0 gives horizontal lines.
   - **Lattice:** `hatch` and `shade` pin lines to a **page lattice** by default (`anchor: "page"`, `offset` ½ spacing), so shapes hatched alike line up.
   - **Clipping:** clipping to a shape is exact (`ScanlineSweep` or `clipToShape`), never via the mask.
   - **Spirals:** `spiral` shrinks the outline towards a centre, so it is always local and needs a star-shaped outline. Spacing is exact only when the outline has an inscribed circle.
-  - **Separate pens for outline and hatch:** draw the outline with `doc.draw("ink", outline, { silhouette: false })`, then the hatch with `doc.draw("shade", lines, { silhouette: outline })`.
+  - **Separate pens for outline and hatch:** draw the outline with `sheet.draw("ink", outline, { silhouette: false })`, then the hatch with `sheet.draw("shade", lines, { silhouette: outline })`.
 - Distance fields (`src/sdf/`):
   - **Sign:** negative inside, in mm, and signed by the fill rule (default `nonzero`). Distances are measured to the true boundary under that rule.
   - **Grid:** nodes sit on a page lattice at multiples of `1 / resolution` (default 5 nodes per mm), so grids of different fields line up index for index.
@@ -52,7 +58,7 @@ A publishable, plotter-oriented vector generative art library. `src/` is the lib
   - **Rotations:** `rotateX/Y/Z` follow the right-hand rule (`rotateY(+)` takes +z to +x), the opposite sense to the 2D helpers. `compose3` applies its arguments in order.
   - **Drawing:** a mesh becomes 2D paths only through `renderMesh`, which removes hidden lines exactly in vectors (no face sort, no mask). The mask is for occlusion between the object and the rest of the page: draw `edges`, `creases` and `hatch` with `silhouette: false` except the last call, which takes `silhouette` (and a `gap` for the halo).
   - **Limits:** faces mustn't pass through each other, and back faces are culled, so view a `clipBelow` mesh from above. Faces narrower than the hatch spacing can get no first-pass lines.
-- Plotting (`src/plot/`): `optimize(doc)` returns a new Document and never touches the input. It never reorders or mixes layers (a layer is a pen). Each layer starts from home at the page's top-left (0, 0) and returns there, as AxiDraw does. Test helpers shared between test files go in `*.test-util.ts`, which the declaration build excludes.
+- Plotting (`src/plot/`): `optimize(sheet)` returns a new `Sheet` and never touches the input. It never reorders or mixes layers (a layer is a pen). Each layer starts from home at the page's top-left (0, 0) and returns there, as AxiDraw does. Test helpers shared between test files go in `*.test-util.ts`, which the declaration build excludes.
 - New files follow Prettier defaults (80 columns), which is what the editor applies.
 
 ## wtc-math gotchas (verified on 1.4.0, pinned by `transforms.test.ts`)

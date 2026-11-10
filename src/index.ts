@@ -25,13 +25,14 @@ export {
   type PathFinishOptions,
 } from "./sdf/isolines.js";
 
-// Document
-export { Document, type DocumentOptions, type DrawOptions, type OcclusionOptions } from "./document/Document.js";
-export { Layer, DEFAULT_PEN, type Pen } from "./document/Layer.js";
-export { paper, customPaper, orient, type PaperSize, type Orientation } from "./document/paper.js";
+// Sheet
+export { Sheet, type SheetOptions, type DrawOptions, type OcclusionOptions } from "./sheet/Sheet.js";
+export { Layer, DEFAULT_PEN, type Pen } from "./sheet/Layer.js";
+export { paper, customPaper, orient, type PaperSize, type Orientation } from "./sheet/paper.js";
 
 // Occlusion
 export { Mask, type MaskClipOptions } from "./mask/Mask.js";
+export type { CoverageGrid } from "./mask/rasterize.js";
 
 // Hatching and tone
 export {
@@ -154,4 +155,8 @@ export { Random } from "./random/Random.js";
 
 // Rendering
 export { toSVG, pathData, formatNumber, type SVGOptions } from "./render/svg.js";
-export { renderToCanvas, type CanvasRenderOptions } from "./render/canvas.js";
+export {
+  renderToCanvas,
+  type CanvasRenderOptions,
+  type Context2D,
+} from "./render/canvas.js";

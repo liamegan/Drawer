@@ -1,11 +1,13 @@
-import type { Document } from "../document/Document.js";
+import type { Sheet } from "../sheet/Sheet.js";
 
-type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+/** A 2D canvas context, on screen or offscreen. */
+export type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
+/** Options for {@link renderToCanvas}. */
 export interface CanvasRenderOptions {
   /** Pixels per millimetre. Include devicePixelRatio for crisp output. */
   scale: number;
-  /** Fill the sheet with the document's paper colour first. Default true. */
+  /** Fill the sheet with its paper colour first. Default true. */
   background?: boolean;
   /**
    * Thinnest line drawn, in device pixels, so fine pens stay visible at
@@ -15,11 +17,11 @@ export interface CanvasRenderOptions {
 }
 
 /**
- * Draws a preview of `doc` into a 2D context, with the sheet's top-left at the
+ * Draws a preview of `sheet` into a 2D context, with the sheet's top-left at the
  * context's current origin. Layers are drawn in plotting order, each with its
  * own pen colour and width.
  */
-export function renderToCanvas(doc: Document, ctx: Context2D, options: CanvasRenderOptions): void {
+export function renderToCanvas(sheet: Sheet, ctx: Context2D, options: CanvasRenderOptions): void {
   const { scale } = options;
   const minWidthMm = (options.minLineWidth ?? 1) / scale;
 
@@ -27,14 +29,14 @@ export function renderToCanvas(doc: Document, ctx: Context2D, options: CanvasRen
   ctx.scale(scale, scale);
 
   if (options.background ?? true) {
-    ctx.fillStyle = doc.paperColor;
-    ctx.fillRect(0, 0, doc.width, doc.height);
+    ctx.fillStyle = sheet.paperColor;
+    ctx.fillRect(0, 0, sheet.width, sheet.height);
   }
 
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  for (const layer of doc.layers) {
+  for (const layer of sheet.layers) {
     ctx.strokeStyle = layer.pen.color;
     ctx.lineWidth = Math.max(layer.pen.width, minWidthMm);
     // One path per layer: far faster than stroking each polyline separately.

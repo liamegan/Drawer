@@ -7,6 +7,7 @@ import { streamlines } from "../field/streamlines.js";
 import { insetShapes } from "./hatch.js";
 import type { ToneField } from "./tone.js";
 
+/** Options for {@link flowHatch}. */
 export interface FlowHatchOptions {
   /** The flow the lines follow. */
   field: VectorField;
@@ -41,7 +42,7 @@ export interface FlowHatchOptions {
   maxLength?: number;
   /** Where to start the first lines. Default the middle of the shapes. */
   seeds?: readonly Vec2[];
-  /** Ends lines at ink already drawn, such as `doc.mask.hiddenTest()`. */
+  /** Ends lines at ink already drawn, such as `sheet.mask.hiddenTest()`. */
   stopAt?: HiddenTest;
   /** See `streamlines`. Default 0.01. */
   simplify?: number;

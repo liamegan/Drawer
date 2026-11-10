@@ -22,6 +22,7 @@ export interface Projection {
   depth(p: Vec3): number;
 }
 
+/** Options for {@link oblique}. */
 export interface ObliqueOptions {
   /** How much depth (z) shows, in page mm per mm. Default 0.5, as GM. */
   factor?: number;
@@ -52,6 +53,7 @@ export function oblique(options: ObliqueOptions = {}): Projection {
   return makeProjection(new Vec3(1, 0, c), new Vec3(0, -1, s), toEye);
 }
 
+/** Options for {@link orthographic}. */
 export interface OrthographicOptions {
   /** How far the viewer is above the ground, in radians. Default π/6. */
   elevation?: number;

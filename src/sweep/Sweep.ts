@@ -6,6 +6,7 @@ import { leaf, type OutlineProfile, type Profile } from "./profiles.js";
 /** A width per t (`Profile`), or an outline in unit leaf space. */
 export type SweepProfile = Profile | OutlineProfile;
 
+/** Options for a new {@link Sweep}. */
 export interface SweepOptions {
   /** Width in mm where the profile is 1: half of it on each side. */
   width: number;

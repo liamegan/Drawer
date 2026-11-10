@@ -6,7 +6,7 @@ import {
   Sweep,
   sweepHatch,
   type Bounds,
-  type Document,
+  type Sheet,
   type Random,
 } from "wtc-drawer";
 
@@ -40,7 +40,7 @@ export function ground(area: Bounds) {
  * and darker.
  */
 export function grassRows(
-  doc: Document,
+  doc: Sheet,
   noise: Noise,
   rng: Random,
   groundAt: (d: number) => number,
@@ -100,7 +100,7 @@ export function grassBlade(
 }
 
 /** The horizon, a gently rolling line; draw it last, behind everything. */
-export function horizonLine(doc: Document, noise: Noise, horizon: number) {
+export function horizonLine(doc: Sheet, noise: Noise, horizon: number) {
   const area = doc.drawArea;
   const line: Vec2[] = [];
   for (let x = area.x; x <= area.max.x; x += 1) {

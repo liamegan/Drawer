@@ -1,8 +1,9 @@
 import { Vec2 } from "wtc-math";
-import type { Document } from "../document/Document.js";
+import type { Sheet } from "../sheet/Sheet.js";
 import type { Polyline } from "../geometry/Polyline.js";
 import { travelLength } from "./sort.js";
 
+/** Options for {@link plotStats} and {@link pathStats}. */
 export interface PlotStatsOptions {
   /** Pen-down speed, mm/s. Default 50. */
   drawSpeed?: number;
@@ -14,6 +15,7 @@ export interface PlotStatsOptions {
   home?: Vec2;
 }
 
+/** Distances, pen lifts and time for a set of paths. */
 export interface PathStats {
   /** Paths drawn: one pen lift each. */
   paths: number;
@@ -27,6 +29,7 @@ export interface PathStats {
   seconds: number;
 }
 
+/** {@link PathStats} for a whole sheet, with a breakdown per layer. */
 export interface PlotStats extends PathStats {
   layers: (PathStats & { name: string })[];
 }
@@ -42,10 +45,10 @@ export interface PlotStats extends PathStats {
  * calibrate them by timing one real plot.
  */
 export function plotStats(
-  doc: Document,
+  sheet: Sheet,
   options: PlotStatsOptions = {},
 ): PlotStats {
-  const layers = doc.layers.map((layer) => ({
+  const layers = sheet.layers.map((layer) => ({
     name: layer.name,
     ...pathStats(layer.paths, options),
   }));

@@ -28,6 +28,7 @@ export interface MeshFace {
   readonly angles: readonly number[];
 }
 
+/** Options for {@link renderMesh}. */
 export interface RenderMeshOptions {
   /** How the world lands on the page. */
   projection: Projection;
@@ -67,6 +68,10 @@ export interface RenderMeshOptions {
   minLength?: number;
 }
 
+/**
+ * What {@link renderMesh} returns: the visible lines, sorted by kind, and the
+ * silhouette.
+ */
 export interface MeshDrawing {
   /** Outline and sharp edges, each once, with hidden parts removed. */
   edges: Polyline[];
@@ -76,7 +81,7 @@ export interface MeshDrawing {
   hatch: Polyline[];
   /**
    * The visible faces' rings, clockwise on screen: together they are the
-   * object's silhouette, for `doc.draw`'s `silhouette` (and `gap`).
+   * object's silhouette, for `sheet.draw`'s `silhouette` (and `gap`).
    */
   silhouette: Polyline[];
   /** The faces facing the viewer, with their shading. */
@@ -122,9 +127,9 @@ interface Front {
  *
  * Draw the result with separate pens and stamp the silhouette last:
  *
- *     doc.draw("ink", d.edges, { silhouette: false });
- *     doc.draw("light", d.creases, { silhouette: false });
- *     doc.draw("shade", d.hatch, { silhouette: d.silhouette, gap: 0.6 });
+ *     sheet.draw("ink", d.edges, { silhouette: false });
+ *     sheet.draw("light", d.creases, { silhouette: false });
+ *     sheet.draw("shade", d.hatch, { silhouette: d.silhouette, gap: 0.6 });
  */
 export function renderMesh(
   mesh: Mesh,

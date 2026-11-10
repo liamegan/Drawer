@@ -47,6 +47,7 @@ export const straight: LineStyle = ({ v, u0, u1 }) => [
   [u1, v],
 ];
 
+/** Options for the {@link sine} line style. */
 export interface SineOptions {
   /** Height of the wave either side of the line, in mm. Keep under half the spacing to avoid touching neighbours. */
   amplitude: number;
@@ -83,6 +84,7 @@ export function sine(options: SineOptions): LineStyle {
   };
 }
 
+/** Options for {@link hatch}. */
 export interface HatchOptions {
   /** Distance between lines, in mm. */
   spacing: number;
@@ -138,7 +140,7 @@ export interface HatchOptions {
  * Lines sit at a fixed lattice of positions (`anchor`, `offset`, `spacing`),
  * not at positions fitted to each shape, so separate shapes hatched alike
  * line up. Combine with occlusion by drawing the lines with the outline:
- * `doc.draw("ink", [outline, ...hatch(outline, o)], { silhouette: outline })`.
+ * `sheet.draw("ink", [outline, ...hatch(outline, o)], { silhouette: outline })`.
  */
 export function hatch(
   shapes: Polyline | readonly Polyline[],

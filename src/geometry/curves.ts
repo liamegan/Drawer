@@ -3,6 +3,7 @@ import { Polyline } from "./Polyline.js";
 import { circleSegments } from "./shapes.js";
 import { segmentDistance } from "./simplify.js";
 
+/** Options for {@link quadratic} and {@link cubic}. */
 export interface CurveOptions {
   /**
    * Largest allowed gap (mm) between the curve and its straight segments.
@@ -11,6 +12,7 @@ export interface CurveOptions {
   tolerance?: number;
 }
 
+/** Options for {@link catmullRom}. */
 export interface CatmullRomOptions extends CurveOptions {
   /** Join the last point back to the first. Default false. */
   closed?: boolean;

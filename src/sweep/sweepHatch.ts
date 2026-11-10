@@ -7,6 +7,7 @@ import { Region } from "../geometry/region.js";
 import { simplify } from "../geometry/simplify.js";
 import type { Sweep } from "./Sweep.js";
 
+/** Options for {@link sweepHatch}. */
 export interface SweepHatchOptions {
   /**
    * "across" draws lines from edge to edge at constant t, like the veins of

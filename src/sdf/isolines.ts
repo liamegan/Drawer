@@ -4,6 +4,7 @@ import { simplify, smooth } from "../geometry/simplify.js";
 import { DEFAULT_RESOLUTION, windowFor, type SDFGrid } from "./grid.js";
 import type { SDF } from "./SDF.js";
 
+/** How traced paths are tidied (smoothed, simplified, short ones dropped). */
 export interface PathFinishOptions {
   /** Rounds of Chaikin corner cutting applied to each path. Default 0. */
   smooth?: number;
@@ -16,6 +17,7 @@ export interface PathFinishOptions {
   minLength?: number;
 }
 
+/** Options for {@link isolines}. */
 export interface IsolineOptions extends PathFinishOptions {
   /** Grid nodes per mm. Default 5 (0.2 mm cells). */
   resolution?: number;

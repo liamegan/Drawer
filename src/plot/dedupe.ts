@@ -1,6 +1,7 @@
 import { Vec2 } from "wtc-math";
 import { Polyline } from "../geometry/Polyline.js";
 
+/** Options for {@link dedupePaths}. */
 export interface DedupeOptions {
   /** Ink this close (mm) to ink already drawn counts as drawn twice. Default 0.05. */
   tolerance?: number;

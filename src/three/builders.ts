@@ -58,6 +58,7 @@ export function extrude(profile: readonly Vec2[], depth: number): Mesh {
   return new Mesh(vertices, faces);
 }
 
+/** Options for {@link lathe}. */
 export interface LatheOptions {
   /** Points round each ring. Default 12. */
   sides?: number;
@@ -144,6 +145,7 @@ export function lathe(
   return mesh.volume < 0 ? mesh.reversed() : mesh;
 }
 
+/** Options for {@link breakCorners}. */
 export interface BreakCornersOptions {
   /** How many times to cut the corners. Default 2, as GM's blocks. */
   passes?: number;

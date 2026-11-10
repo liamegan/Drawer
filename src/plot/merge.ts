@@ -2,6 +2,7 @@ import type { Vec2 } from "wtc-math";
 import { Polyline } from "../geometry/Polyline.js";
 import { PointGrid } from "./grid.js";
 
+/** Options for {@link mergePaths}. */
 export interface MergeOptions {
   /** Ends this close (mm) are joined. Default 0.05. */
   tolerance?: number;

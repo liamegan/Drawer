@@ -16,7 +16,7 @@ The foundation everything else draws through.
 - [x] `Polyline` (immutable, `Vec2` points, open or closed) and `Bounds`
 - [x] Shapes: `line`, `rect`, `polygon`, `circle` (segment count from a tolerance)
 - [x] Transform helpers over wtc-math `Mat3`, with its rotation-direction quirk pinned by tests
-- [x] `Document` in mm: paper presets, orientation, margin, `drawArea`, pen layers
+- [x] `Document` (now `Sheet`) in mm: paper presets, orientation, margin, `drawArea`, pen layers
 - [x] Seeded `Random` (sfc32 + cyrb128) with `fork(label)` for independent streams
 - [x] `toSVG` (mm sizing, Inkscape layers per pen) and `renderToCanvas` preview
 - [x] Playground: sketch auto-discovery, seed in the URL, `s` / `r` / `←→` keys
@@ -98,7 +98,7 @@ Outline-following fills for any shape, the general form of GM's leaf hatching. C
 
 ## Phase 4: Plot optimisation ✅
 
-Makes real plots faster and cleaner. Plotting is AxiDraw straight from the SVG, with no vpype, so this is the only optimiser. `optimize(doc)` returns a new document with the same sheet, layers and pens. Layers are never reordered, since each is a pen.
+Makes real plots faster and cleaner. Plotting is AxiDraw straight from the SVG, with no vpype, so this is the only optimiser. `optimize(sheet)` returns a new sheet with the same paper, layers and pens. Layers are never reordered, since each is a pen.
 
 - [x] Path ordering: `sortPaths`, greedy nearest-neighbour per layer from home (top-left), reversing open paths and starting closed paths at their nearest vertex. Uses a removable point grid (`src/plot/grid.ts`).
 - [x] Merging: `mergePaths` joins paths whose ends meet within 0.05 mm, reversing as needed. Chains that loop become closed paths.
@@ -238,26 +238,46 @@ GM's best trick: shapes built in their own parameter space, so their hatching fo
 
 ---
 
-## Phase 9: Publishing ⬜
+## Phase 9: Publishing ✅
 
-- [ ] README with a quick start and a gallery
-- [ ] API docs generated from TSDoc
-- [ ] CI: typecheck, test and build on every push
-- [ ] Changesets or versioning, and the first `npm publish`
+Makes the repository readable and checked, ahead of a release. Publishing to npm moved to Phase 10.
+
+- [x] `Document` renamed to `Sheet` (and `DocumentOptions` to `SheetOptions`), so it no longer hides the DOM's `Document` type. Public parameters are named `sheet` too. Output is byte-identical.
+- [x] `wtc-math` is a peer dependency (and a dev dependency here), so consumers share one `Vec2` with the library. The package also gained `repository`, `homepage`, `bugs` and a `LICENSE` file.
+- [x] README:
+  - **Contents:** a gallery, a quick start, and a short section with code for each part of the library, plus the playground and the development commands.
+  - **Checked:** every code block in it was run and typechecked.
+  - **Gallery:** `npm run gallery` (`tools/gallery.ts`) re-renders it into `docs/gallery/`. It loads the playground through Vite and builds with `runSketch`, as the batch export does, with the paper colour filled in.
+- [x] API docs from TSDoc:
+  - **Command:** `npm run docs` writes `docs/api/` (gitignored). The README is the front page.
+  - **TypeScript version:** TypeDoc needs TypeScript 6 or older and the repo uses 7, so it has its own small package in `tools/typedoc/`.
+  - **Coverage:** every top-level export is documented, and CI fails on an undocumented export or a broken `{@link}`.
+- [x] CI (`.github/workflows/ci.yml`), on every push and pull request:
+  - tests, the build (which typechecks first) and `npm pack --dry-run`;
+  - the API docs, with warnings as errors.
+- [x] Pages (`.github/workflows/pages.yml`) deploys the API docs on every push to `main`. The repository's Pages source has to be set to "GitHub Actions" once.
+
+**Done when:** a visitor can see what the library makes, run an example and look up the API, and every push is checked. Met, except that the workflows run only on GitHub, and Pages goes live once `main` has the phases merged.
+
+---
+
+## Phase 10: Release ⬜
+
+- [ ] Versioning (Changesets or tags) and a changelog
+- [ ] The first `npm publish`
 
 ---
 
 ## Open decisions
 
-| Question | Leaning | Decide by |
-| --- | --- | --- |
-| Rename `Document`? It hides the DOM `Document` type in any file that imports it | Open (`Sheet` is a candidate) | Before the first publish |
-| `wtc-math` as a dependency or a peer dependency? | Peer, if consumers use `Vec2` directly alongside it | Phase 9 |
+None at the moment.
 
 ### Settled
 
 | Question | Decision |
 | --- | --- |
+| Rename `Document`? It hid the DOM `Document` type in any file that imported it | Renamed to `Sheet` (Phase 9). |
+| `wtc-math` as a dependency or a peer dependency? | A peer dependency (Phase 9), since consumers use `Vec2` alongside the library. |
 | Rasterise the mask with Canvas2D, or with our own scanline code? | Our own scanline code, with anti-aliased coverage (Phase 1). It's DOM-free, deterministic and testable in Node. |
 | Use `Vec2` in hot inner loops? | No. Mask and clipping code works on raw numbers and typed arrays; `Vec2` stays at the API surface. The A5 occlusion sketch, about 10 m of line, builds in 15–50 ms in Node. |
 | Default mask resolution | 10 px/mm, through `occlusion.resolution`. Cut points land within about 0.025 mm of the true edge. |

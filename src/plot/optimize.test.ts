@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Document } from "../document/Document.js";
+import { Sheet } from "../sheet/Sheet.js";
 import { Polyline } from "../geometry/Polyline.js";
 import { circle, rect } from "../geometry/shapes.js";
 import { contourSpiral } from "../fill/contourSpiral.js";
@@ -10,42 +10,42 @@ import { optimize, optimizePaths } from "./optimize.js";
 import { plotStats } from "./stats.js";
 
 /** A small occluded drawing on two pens, like the playground sketches. */
-function drawing(): Document {
-  const doc = new Document({ margin: 10, occlusion: { gap: 0.2 } });
-  doc.layer("ink", { color: "#111", width: 0.3 });
-  doc.layer("shade", { color: "#555", width: 0.25 });
+function drawing(): Sheet {
+  const sheet = new Sheet({ margin: 10, occlusion: { gap: 0.2 } });
+  sheet.layer("ink", { color: "#111", width: 0.3 });
+  sheet.layer("shade", { color: "#555", width: 0.25 });
   const random = new Random("optimize");
   for (let k = 0; k < 12; k++) {
-    const c = random.pointIn(doc.drawArea.inset(20));
+    const c = random.pointIn(sheet.drawArea.inset(20));
     const outline = circle(c, random.range(6, 18));
-    doc.draw("ink", outline, { silhouette: false });
-    doc.draw("shade", hatch(outline, { spacing: 0.8, angle: k }), {
+    sheet.draw("ink", outline, { silhouette: false });
+    sheet.draw("shade", hatch(outline, { spacing: 0.8, angle: k }), {
       silhouette: outline,
     });
   }
   // Touching frames share edges.
-  for (let i = 0; i < 4; i++) doc.add("ink", rect(20 + i * 10, 250, 10, 10));
-  return doc;
+  for (let i = 0; i < 4; i++) sheet.add("ink", rect(20 + i * 10, 250, 10, 10));
+  return sheet;
 }
 
 describe("optimize", () => {
   it("keeps the sheet, layers and pens, and leaves the input alone", () => {
-    const doc = drawing();
-    const before = doc.layers.map((l) => [...l.paths]);
-    const out = optimize(doc);
-    expect(out).not.toBe(doc);
-    expect(out.paper).toEqual(doc.paper);
-    expect(out.margin).toBe(doc.margin);
+    const sheet = drawing();
+    const before = sheet.layers.map((l) => [...l.paths]);
+    const out = optimize(sheet);
+    expect(out).not.toBe(sheet);
+    expect(out.paper).toEqual(sheet.paper);
+    expect(out.margin).toBe(sheet.margin);
     expect(out.layers.map((l) => [l.name, l.pen])).toEqual(
-      doc.layers.map((l) => [l.name, l.pen]),
+      sheet.layers.map((l) => [l.name, l.pen]),
     );
-    doc.layers.forEach((l, i) => expect(l.paths).toEqual(before[i]));
+    sheet.layers.forEach((l, i) => expect(l.paths).toEqual(before[i]));
   });
 
   it("draws the same ink with far less travel and fewer lifts", () => {
-    const doc = drawing();
-    const out = optimize(doc);
-    doc.layers.forEach((layer, i) => {
+    const sheet = drawing();
+    const out = optimize(sheet);
+    sheet.layers.forEach((layer, i) => {
       const paths = out.layers[i].paths;
       // Every bit of ink is still drawn, and nothing new is.
       expect(inkDistance(layer.paths, paths)).toBeLessThan(0.06);
@@ -54,7 +54,7 @@ describe("optimize", () => {
         inkLength(layer.paths) + 1e-6,
       );
     });
-    const raw = plotStats(doc);
+    const raw = plotStats(sheet);
     const plotted = plotStats(out);
     // Hatching already zigzags within each disc, so the gain is mostly in
     // the order of the shapes and outlines.
@@ -91,8 +91,8 @@ describe("optimize", () => {
   });
 
   it("lets each step be turned off", () => {
-    const doc = drawing();
-    const paths = doc.layers[1].paths;
+    const sheet = drawing();
+    const paths = sheet.layers[1].paths;
     expect(
       optimizePaths(paths, {
         simplify: false,

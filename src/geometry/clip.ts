@@ -6,6 +6,7 @@ import type { FillRule } from "./scanline.js";
 /** Answers "is the point (x, y), in mm, hidden?" for `clipPolyline`. */
 export type HiddenTest = (x: number, y: number) => boolean;
 
+/** Options for {@link clipPolyline}. */
 export interface ClipOptions {
   /**
    * Largest distance between samples along each segment, in mm. Hidden or
@@ -26,6 +27,7 @@ export interface ClipOptions {
   stopOnCollide?: boolean;
 }
 
+/** Options for {@link clipToShape}. */
 export interface ShapeClipOptions {
   /** How the shapes' rings combine. Default "nonzero", as in SVG. */
   rule?: FillRule;

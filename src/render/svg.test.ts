@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { Vec2 } from "wtc-math";
-import { Document } from "../document/Document.js";
-import { paper } from "../document/paper.js";
+import { Sheet } from "../sheet/Sheet.js";
+import { paper } from "../sheet/paper.js";
 import { Polyline } from "../geometry/Polyline.js";
 import { line, rect } from "../geometry/shapes.js";
 import { formatNumber, pathData, toSVG } from "./svg.js";
 
 const makeDoc = () => {
-  const doc = new Document({ paper: paper.A5, margin: 5 });
-  doc.layer("outline", { color: "#112233", width: 0.5 }).add(rect(10, 10, 20, 20));
-  doc.layer("detail <&>").add(line(new Vec2(0, 0), new Vec2(1.23456, 2)));
-  return doc;
+  const sheet = new Sheet({ paper: paper.A5, margin: 5 });
+  sheet.layer("outline", { color: "#112233", width: 0.5 }).add(rect(10, 10, 20, 20));
+  sheet.layer("detail <&>").add(line(new Vec2(0, 0), new Vec2(1.23456, 2)));
+  return sheet;
 };
 
 describe("formatNumber / pathData", () => {
@@ -57,9 +57,9 @@ describe("toSVG", () => {
   });
 
   it("skips degenerate paths", () => {
-    const doc = new Document();
-    doc.add("x", new Polyline([new Vec2(1, 1)]));
-    expect(toSVG(doc)).not.toContain("<path");
+    const sheet = new Sheet();
+    sheet.add("x", new Polyline([new Vec2(1, 1)]));
+    expect(toSVG(sheet)).not.toContain("<path");
   });
 
   it("writes a title and an escaped description only when given", () => {

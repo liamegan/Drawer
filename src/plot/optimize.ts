@@ -1,11 +1,12 @@
 import { Vec2 } from "wtc-math";
-import { Document } from "../document/Document.js";
+import { Sheet } from "../sheet/Sheet.js";
 import type { Polyline } from "../geometry/Polyline.js";
 import { simplify } from "../geometry/simplify.js";
 import { dedupePaths, type DedupeOptions } from "./dedupe.js";
 import { mergePaths } from "./merge.js";
 import { sortPaths } from "./sort.js";
 
+/** Options for {@link optimize} and {@link optimizePaths}. */
 export interface OptimizeOptions {
   /**
    * Drop points within this many mm of the path (RDP), or false to keep
@@ -27,24 +28,24 @@ export interface OptimizeOptions {
 }
 
 /**
- * A copy of `doc` made for plotting: the same sheet and layers, in the same
+ * A copy of `sheet` made for plotting: the same sheet and layers, in the same
  * order with the same pens, but each layer's paths simplified, cleared of
  * ink drawn twice, joined where their ends meet and sorted to cut pen-up
  * travel (see `optimizePaths`). Layers are never mixed or reordered, since
- * each is a pen. `doc` is left as it is; the copy has a fresh, empty mask.
+ * each is a pen. `sheet` is left as it is; the copy has a fresh, empty mask.
  */
 export function optimize(
-  doc: Document,
+  sheet: Sheet,
   options: OptimizeOptions = {},
-): Document {
-  const out = new Document({
-    paper: doc.paper,
-    orientation: doc.orientation,
-    margin: doc.margin,
-    paperColor: doc.paperColor,
-    occlusion: doc.occlusion,
+): Sheet {
+  const out = new Sheet({
+    paper: sheet.paper,
+    orientation: sheet.orientation,
+    margin: sheet.margin,
+    paperColor: sheet.paperColor,
+    occlusion: sheet.occlusion,
   });
-  for (const layer of doc.layers) {
+  for (const layer of sheet.layers) {
     const copy = out.layer(layer.name, layer.pen);
     // One at a time: a dense layer can have more paths than a call takes
     // arguments.
