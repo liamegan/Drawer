@@ -37,6 +37,7 @@ export function polygon(center: Vec2, radius: number, sides: number, startAngle 
   return new Polyline(pts, true);
 }
 
+/** Options for {@link circle}. */
 export interface CircleOptions {
   /**
    * Largest allowed gap (mm) between the true circle and its straight

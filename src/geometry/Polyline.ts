@@ -50,7 +50,7 @@ export class Polyline {
     return this.points[this.points.length - 1];
   }
 
-  /** Total drawn length in document units (mm), including the closing segment. */
+  /** Total drawn length in sheet units (mm), including the closing segment. */
   get length(): number {
     const pts = this.points;
     let total = 0;
@@ -71,6 +71,7 @@ export class Polyline {
     );
   }
 
+  /** Moved by `offset`. */
   translate(offset: Vec2): Polyline {
     return Polyline.#adopt(
       this.points.map((p) => p.addNew(offset)),
@@ -78,6 +79,7 @@ export class Polyline {
     );
   }
 
+  /** The same path, run from the other end. */
   reversed(): Polyline {
     return Polyline.#adopt(
       this.points.map((p) => p.clone()).reverse(),
@@ -90,6 +92,7 @@ export class Polyline {
     return this.closed ? this : new Polyline(this.points, true);
   }
 
+  /** A copy with its own points. */
   clone(): Polyline {
     return new Polyline(this.points, this.closed);
   }

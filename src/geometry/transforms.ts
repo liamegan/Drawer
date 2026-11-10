@@ -17,6 +17,7 @@ function toVec(x: number | Vec2, y?: number): Vec2 {
   return typeof x === "number" ? new Vec2(x, y ?? x) : x;
 }
 
+/** The identity transform. */
 export function identity(): Mat3 {
   return Mat3.identity();
 }

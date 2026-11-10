@@ -8,6 +8,8 @@ import {
 } from "../geometry/clip.js";
 import { asList, Polyline } from "../geometry/Polyline.js";
 import { ScanlineSweep, type FillRule } from "../geometry/scanline.js";
+import { isolines } from "../sdf/isolines.js";
+import { sdf } from "../sdf/SDF.js";
 
 /**
  * Where the family of hatch lines is pinned:
@@ -45,6 +47,7 @@ export const straight: LineStyle = ({ v, u0, u1 }) => [
   [u1, v],
 ];
 
+/** Options for the {@link sine} line style. */
 export interface SineOptions {
   /** Height of the wave either side of the line, in mm. Keep under half the spacing to avoid touching neighbours. */
   amplitude: number;
@@ -81,6 +84,7 @@ export function sine(options: SineOptions): LineStyle {
   };
 }
 
+/** Options for {@link hatch}. */
 export interface HatchOptions {
   /** Distance between lines, in mm. */
   spacing: number;
@@ -116,6 +120,17 @@ export interface HatchOptions {
   style?: LineStyle;
   /** Pieces shorter than this (mm) are dropped. Default 0.2. */
   minLength?: number;
+  /**
+   * Keep lines this far inside the outline, in mm, measured square to the
+   * edge (so the gap doesn't widen where lines meet the edge at a shallow
+   * angle). The shape is shrunk through a distance field, so the gap is
+   * accurate to a small fraction of `resolution`'s cells, and sharp inward
+   * corners of the shrunk outline are cut by up to half a cell's diagonal.
+   * Default 0.
+   */
+  inset?: number;
+  /** Grid nodes per mm for `inset`. Default 5 (0.2 mm cells). */
+  resolution?: number;
 }
 
 /**
@@ -125,7 +140,7 @@ export interface HatchOptions {
  * Lines sit at a fixed lattice of positions (`anchor`, `offset`, `spacing`),
  * not at positions fitted to each shape, so separate shapes hatched alike
  * line up. Combine with occlusion by drawing the lines with the outline:
- * `doc.draw("ink", [outline, ...hatch(outline, o)], { silhouette: outline })`.
+ * `sheet.draw("ink", [outline, ...hatch(outline, o)], { silhouette: outline })`.
  */
 export function hatch(
   shapes: Polyline | readonly Polyline[],
@@ -155,8 +170,21 @@ export function hatchWith(
   const style = options.style ?? straight;
   const minLength = options.minLength ?? 0.2;
 
-  const closed = asList(shapes).filter((p) => p.closed && p.pointCount >= 3);
+  const inset = options.inset ?? 0;
+  if (!(inset >= 0) || !Number.isFinite(inset)) {
+    throw new RangeError("hatch: inset must be a non-negative number");
+  }
+
+  const given = asList(shapes).filter((p) => p.closed && p.pointCount >= 3);
+  if (given.length === 0) return [];
+  // The anchor comes from the shapes as given, so insetting doesn't move a
+  // local lattice.
+  const anchor = anchorPoint(options.anchor ?? "page", given);
+  const closed =
+    inset > 0 ? insetShapes(given, inset, rule, options.resolution) : given;
   if (closed.length === 0) return [];
+  // Level lines never cross, so the inset outline fills the same either way.
+  const fillRule: FillRule = inset > 0 ? "evenodd" : rule;
 
   // The hatch frame: u along the lines, v across them.
   const cos = Math.cos(angle);
@@ -175,7 +203,6 @@ export function hatchWith(
   const sweep = new ScanlineSweep(rings);
   if (sweep.edgeCount === 0) return [];
 
-  const anchor = anchorPoint(options.anchor ?? "page", closed);
   const v0 = -anchor.x * sin + anchor.y * cos + offset * spacing;
   const isStraight = style === straight;
   // Styled lines can wander off their base line, so look one line further out.
@@ -192,7 +219,7 @@ export function hatchWith(
     const v = v0 + k * spacing;
     let pieces: Polyline[] = [];
     if (isStraight) {
-      const n = sweep.spans(v, rule, spans);
+      const n = sweep.spans(v, fillRule, spans);
       for (let i = 0; i < n; i++) {
         const ua = spans[2 * i];
         const ub = spans[2 * i + 1];
@@ -201,7 +228,10 @@ export function hatchWith(
       }
     } else {
       const points = style({ k, v, u0, u1 }).map(([u, w]) => toPage(u, w));
-      pieces = clipToShape(new Polyline(points), closed, { rule, minLength });
+      pieces = clipToShape(new Polyline(points), closed, {
+        rule: fillRule,
+        minLength,
+      });
     }
     if (filter) pieces = pieces.flatMap((piece) => filter(k, piece));
     if (alternate && (k & 1) === 1) {
@@ -211,10 +241,30 @@ export function hatchWith(
   }
 
   if (!join) return lines.flatMap((line) => line.pieces);
-  return joinLines(lines, closed, rule, options.maxJoin ?? spacing * 2);
+  return joinLines(lines, closed, fillRule, options.maxJoin ?? spacing * 2);
 }
 
-function anchorPoint(anchor: HatchAnchor, shapes: readonly Polyline[]): Vec2 {
+/**
+ * The outline of `shapes` shrunk by `inset` mm, through a distance field.
+ * Rings come back oriented so either fill rule fills them alike.
+ */
+export function insetShapes(
+  shapes: readonly Polyline[],
+  inset: number,
+  rule: FillRule,
+  resolution?: number,
+): Polyline[] {
+  return isolines(sdf(shapes, { rule }), -inset, {
+    resolution,
+    simplify: 0.01,
+    minLength: 0,
+  });
+}
+
+export function anchorPoint(
+  anchor: HatchAnchor,
+  shapes: readonly Polyline[],
+): Vec2 {
   if (anchor === "page") return new Vec2(0, 0);
   if (anchor === "local") {
     return Bounds.fromPoints(shapes.flatMap((s) => s.points)).center;

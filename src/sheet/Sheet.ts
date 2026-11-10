@@ -5,7 +5,8 @@ import { Mask } from "../mask/Mask.js";
 import { Layer, type Pen } from "./Layer.js";
 import { orient, paper, type Orientation, type PaperSize } from "./paper.js";
 
-export interface DocumentOptions {
+/** Options for a new {@link Sheet}. */
+export interface SheetOptions {
   /** Sheet size. Default A4. */
   paper?: PaperSize;
   /** Default portrait. Ignored for square sheets. */
@@ -18,6 +19,10 @@ export interface DocumentOptions {
   occlusion?: OcclusionOptions;
 }
 
+/**
+ * A sheet's occlusion settings: the mask and its defaults for {@link
+ * Sheet.draw}.
+ */
 export interface OcclusionOptions {
   /** Mask pixels per mm. Default 10 (0.1 mm pixels, finer than most pens). */
   resolution?: number;
@@ -30,6 +35,7 @@ export interface OcclusionOptions {
   minLength?: number;
 }
 
+/** Options for {@link Sheet.draw}. */
 export interface DrawOptions {
   /** Hide the parts of the paths that are behind earlier shapes. Default true. */
   occlude?: boolean;
@@ -41,11 +47,11 @@ export interface DrawOptions {
    * stamps nothing.
    */
   silhouette?: Polyline | readonly Polyline[] | false;
-  /** Overrides the document's `occlusion.gap` for this silhouette. */
+  /** Overrides the sheet's `occlusion.gap` for this silhouette. */
   gap?: number;
-  /** Also hide everything outside these bounds, e.g. `doc.drawArea`. */
+  /** Also hide everything outside these bounds, e.g. `sheet.drawArea`. */
   bounds?: Bounds;
-  /** Overrides the document's `occlusion.minLength`. */
+  /** Overrides the sheet's `occlusion.minLength`. */
   minLength?: number;
 }
 
@@ -53,7 +59,7 @@ export interface DrawOptions {
  * One plottable sheet: its size in millimetres plus an ordered list of pen
  * layers. Coordinates are mm, with the origin at the top-left and y pointing down.
  */
-export class Document {
+export class Sheet {
   readonly paper: PaperSize;
   readonly orientation: Orientation;
   readonly width: number;
@@ -64,7 +70,7 @@ export class Document {
   readonly #layers: Layer[] = [];
   #mask: Mask | null = null;
 
-  constructor(options: DocumentOptions = {}) {
+  constructor(options: SheetOptions = {}) {
     this.paper = options.paper ?? paper.A4;
     this.orientation = options.orientation ?? "portrait";
     const { width, height } = orient(this.paper, this.orientation);
@@ -131,8 +137,8 @@ export class Document {
    * that later paths are hidden behind them. Returns the pieces added.
    *
    * To draw one object on several layers (say an outline and a hatch on
-   * different pens), clip each layer's paths with `doc.mask.clip()`, add them,
-   * then stamp the silhouette once with `doc.mask.fill()`.
+   * different pens), clip each layer's paths with `sheet.mask.clip()`, add them,
+   * then stamp the silhouette once with `sheet.mask.fill()`.
    */
   draw(layerName: string, paths: Polyline | readonly Polyline[], options: DrawOptions = {}): Polyline[] {
     const list = asList(paths);

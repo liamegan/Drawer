@@ -5,11 +5,15 @@ import { Polyline } from "../geometry/Polyline.js";
 import type { FillRule } from "../geometry/scanline.js";
 import { circle, polygon, rect } from "../geometry/shapes.js";
 import { Random } from "../random/Random.js";
+import { sdf } from "../sdf/SDF.js";
 import { hatch, sine } from "./hatch.js";
 
 const v = (x: number, y: number) => new Vec2(x, y);
 
 /** Distance across the hatch direction, as hatch measures it. */
+const lineYs = (lines: Polyline[]) =>
+  [...new Set(lines.map((l) => Number(l.start!.y.toFixed(6))))];
+
 const across = (p: Vec2, angle: number) =>
   -p.x * Math.sin(angle) + p.y * Math.cos(angle);
 
@@ -206,6 +210,58 @@ describe("hatch", () => {
         }
       }
     }
+  });
+
+  it("keeps lines `inset` inside the outline, measured square to it", () => {
+    const random = new Random("inset");
+    const inset = 0.8;
+    for (let trial = 0; trial < 5; trial++) {
+      const shape = blob(random, 30, 30);
+      const field = sdf(shape);
+      for (const angle of [0, 0.4, 1.3]) {
+        for (const style of [undefined, sine({ amplitude: 0.3, wavelength: 3 })]) {
+          const lines = hatch(shape, { spacing: 1, angle, inset, style });
+          expect(lines.length).toBeGreaterThan(5);
+          const depths = lines.flatMap((l) =>
+            [l.start!, l.end!].map((p) => -field.at(p.x, p.y)),
+          );
+          // Ends sit on the inset outline, whatever angle they meet it at.
+          // Never nearer the edge; a little further only where the inset
+          // outline's sharp corners are cut (half a cell's diagonal at most).
+          for (const depth of depths) {
+            expect(depth).toBeGreaterThan(inset - 0.02);
+            expect(depth).toBeLessThan(inset + 0.15);
+          }
+          depths.sort((a, b) => a - b);
+          expect(depths[depths.length >> 1]).toBeCloseTo(inset, 2);
+          for (const p of samples(lines)) {
+            expect(field.at(p.x, p.y)).toBeLessThan(-inset + 0.02);
+          }
+        }
+      }
+    }
+  });
+
+  it("insets without moving the lattice, and joins inside the inset", () => {
+    for (const anchor of ["page", "local"] as const) {
+      const shape = rect(0.3, 0.3, 20, 13);
+      const all = new Set(lineYs(hatch(shape, { spacing: 1, anchor })));
+      const inset = lineYs(hatch(shape, { spacing: 1, anchor, inset: 2 }));
+      expect(inset.length).toBeGreaterThan(5);
+      for (const y of inset) expect(all.has(y)).toBe(true);
+    }
+    const field = sdf(uShape);
+    const joined = hatch(uShape, { spacing: 0.4, join: true, inset: 0.5 });
+    for (const p of samples(joined)) {
+      expect(field.at(p.x, p.y)).toBeLessThan(-0.5 + 0.02);
+    }
+  });
+
+  it("returns nothing when the inset swallows the shape, and rejects a negative one", () => {
+    expect(hatch(rect(0, 0, 4, 4), { spacing: 0.5, inset: 2.5 })).toEqual([]);
+    expect(() => hatch(rect(0, 0, 4, 4), { spacing: 1, inset: -1 })).toThrow(
+      RangeError,
+    );
   });
 
   it("rejects a bad spacing", () => {

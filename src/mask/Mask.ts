@@ -3,6 +3,7 @@ import { clipPolyline, outsideBounds, type ClipOptions, type HiddenTest } from "
 import { asList, type Polyline } from "../geometry/Polyline.js";
 import { fillRings, strokeRings, toPixelRing, type CoverageGrid, type FillRule } from "./rasterize.js";
 
+/** Options for {@link Mask.clip}. */
 export interface MaskClipOptions extends ClipOptions {
   /** Also hide everything outside these bounds (mm). */
   bounds?: Bounds;

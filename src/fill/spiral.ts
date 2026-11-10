@@ -1,6 +1,7 @@
 import { Vec2 } from "wtc-math";
 import { Polyline } from "../geometry/Polyline.js";
 
+/** Options for {@link spiral}. */
 export interface SpiralOptions {
   /**
    * Distance between turns, in mm. Exact on every edge when the outline has

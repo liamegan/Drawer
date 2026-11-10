@@ -1,0 +1,31 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "wtc-drawer",
+  "entryPoints": [
+    "../../src/index.ts"
+  ],
+  "tsconfig": "../../tsconfig.build.json",
+  "readme": "../../README.md",
+  "out": "../../docs/api",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "sort": [
+    "kind",
+    "alphabetical"
+  ],
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": true
+  },
+  "sourceLinkTemplate": "https://github.com/liamegan/Drawer/blob/{gitRevision}/{path}#L{line}",
+  "requiredToBeDocumented": [
+    "Class",
+    "Function",
+    "Interface",
+    "Variable",
+    "TypeAlias",
+    "Namespace",
+    "Enum"
+  ]
+}
